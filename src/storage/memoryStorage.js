@@ -1,5 +1,21 @@
 const { normalizeCapacity, normalizeQuantity, parseInteger, parsePositiveInteger } = require('../utils/validator');
 
+const DEFAULT_USER_ID = 'default';
+
+function isValidUserId(userId) {
+  if (userId === undefined || userId === null) return false;
+  if (typeof userId !== 'string') return false;
+  const trimmed = userId.trim();
+  return trimmed.length > 0 && trimmed.length <= 64;
+}
+
+function normalizeUserId(userId) {
+  if (!isValidUserId(userId)) {
+    throw new Error('userId 非法，必须是1-64位的非空字符串');
+  }
+  return userId.trim();
+}
+
 class MemoryStorage {
   constructor() {
     this.candles = [];
@@ -7,6 +23,7 @@ class MemoryStorage {
     this.inventory = [];
     this.consumptionModels = new Map();
     this.tips = [];
+    this.userProfiles = new Map();
     this._initDefaultData();
   }
 
@@ -33,30 +50,38 @@ class MemoryStorage {
     this.tips = [
       { id: 1, type: 'burning_too_fast', title: '燃烧过快优化技巧', content: '建议修剪烛芯至5mm长度，避免长时间连续燃烧不超过4小时，放置在无风区域使用。' },
       { id: 2, type: 'tunneling', title: '避免挂壁技巧', content: '首次燃烧需让蜡面完全融化形成记忆池，约1-2小时，防止蜡池形成后再熄灭。' },
-      { id: 3, type: 'smoke', title: '减少黑烟技巧', content: '熄灭时用烛钩将烛芯浸入蜡油后再扶正，或使用灭烛罩，避免直接吹灭产生黑烟。' },
+      { id: 3, type: 'c', title: '减少黑烟技巧', content: '熄灭时用烛钩将烛芯浸入蜡油后再扶正，或使用灭烛罩，避免直接吹灭产生黑烟。' },
       { id: 4, type: 'efficiency', title: '延长使用寿命', content: '每次使用前修剪烛芯，保持燃烧环境温度稳定，避免温差过大。' }
     ];
   }
 
-  addBurningRecord(record) {
+  addBurningRecord(record, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
     record.id = this.burningRecords.length + 1;
     record.timestamp = Date.now();
+    record.userId = uid;
     this.burningRecords.push(record);
     return record;
   }
 
   getBurningRecords(filters = {}) {
-    let records = [...this.burningRecords];
+    const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
+    let records = this.burningRecords.filter(r => r.userId === uid);
     if (filters.brand) {
       records = records.filter(r => r.brand === filters.brand);
     }
     if (filters.candleId) {
       records = records.filter(r => r.candleId === filters.candleId);
     }
+    if (filters.scene) {
+      records = records.filter(r => r.scene === filters.scene);
+    }
     return records;
   }
 
-  addInventoryItem(item) {
+  addInventoryItem(item, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+
     const normalizedQuantity = normalizeQuantity(item.quantity);
     if (normalizedQuantity === null) {
       throw new Error('quantity 必须是有效的非负整数');
@@ -68,7 +93,10 @@ class MemoryStorage {
     }
 
     const existing = this.inventory.find(i =>
-      i.brand === item.brand && i.capacity === normalizedCapacity
+      i.userId === uid &&
+      i.brand === item.brand &&
+      i.capacity === normalizedCapacity &&
+      (item.scene ? i.scene === item.scene : !i.scene)
     );
 
     if (existing) {
@@ -81,6 +109,7 @@ class MemoryStorage {
     const newItem = {
       ...item,
       id: this.inventory.length + 1,
+      userId: uid,
       capacity: normalizedCapacity,
       quantity: normalizedQuantity,
       lastUpdated: Date.now()
@@ -89,8 +118,9 @@ class MemoryStorage {
     return newItem;
   }
 
-  updateInventory(id, updates) {
-    const item = this.inventory.find(i => i.id === id);
+  updateInventory(id, updates, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const item = this.inventory.find(i => i.id === id && i.userId === uid);
     if (item) {
       this._sanitizeInventoryItem(item);
       const safeUpdates = { ...updates };
@@ -114,30 +144,64 @@ class MemoryStorage {
   }
 
   getInventory(filters = {}) {
-    let items = [...this.inventory];
+    const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
+    let items = this.inventory.filter(i => i.userId === uid);
     if (filters.brand) {
       items = items.filter(i => i.brand === filters.brand);
+    }
+    if (filters.scene) {
+      items = items.filter(i => i.scene === filters.scene);
     }
     return items;
   }
 
-  getInventoryByBrandAndCapacity(brand, capacity) {
+  getInventoryByBrandAndCapacity(brand, capacity, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
     const normalizedCapacity = normalizeCapacity(capacity);
     if (normalizedCapacity === null) return null;
-    return this.inventory.find(i => i.brand === brand && i.capacity === normalizedCapacity);
+    return this.inventory.find(i =>
+      i.userId === uid &&
+      i.brand === brand &&
+      i.capacity === normalizedCapacity);
   }
 
-  saveConsumptionModel(candleId, model) {
-    this.consumptionModels.set(candleId, model);
+  saveConsumptionModel(candleId, model, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const key = `${uid}:${candleId}`;
+    this.consumptionModels.set(key, model);
     return model;
   }
 
-  getConsumptionModel(candleId) {
-    return this.consumptionModels.get(candleId) || null;
+  getConsumptionModel(candleId, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const key = `${uid}:${candleId}`;
+    return this.consumptionModels.get(key) || null;
   }
 
-  getAllConsumptionModels() {
-    return Array.from(this.consumptionModels.values());
+  getAllConsumptionModels(userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    return Array.from(this.consumptionModels.entries())
+      .filter(([key]) => key.startsWith(`${uid}:`))
+      .map(([, model]) => model);
+  }
+
+  saveUserProfile(userId, profile) {
+    const uid = normalizeUserId(userId);
+    this.userProfiles.set(uid, {
+      ...profile,
+      userId: uid,
+      lastUpdated: Date.now()
+    });
+    return this.userProfiles.get(uid);
+  }
+
+  getUserProfile(userId) {
+    const uid = normalizeUserId(userId);
+    return this.userProfiles.get(uid) || null;
+  }
+
+  getAllUserProfiles() {
+    return Array.from(this.userProfiles.values());
   }
 
   getCandleByBrandAndCapacity(brand, capacity) {
@@ -164,4 +228,10 @@ class MemoryStorage {
 }
 
 const storage = new MemoryStorage();
-module.exports = storage;
+
+module.exports = {
+  storage,
+  isValidUserId,
+  normalizeUserId,
+  DEFAULT_USER_ID
+};

@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const storage = require('../storage/memoryStorage');
+const { storage, normalizeUserId, DEFAULT_USER_ID } = require('../storage/memoryStorage');
 const { success, error } = require('../utils/response');
-const { validateInventoryReport } = require('../utils/validator');
+const { validateInventoryReport, validateBurningRecord, validateUserId, parsePositiveInteger } = require('../utils/validator');
 
 router.post('/report', (req, res) => {
   try {
@@ -11,7 +11,13 @@ router.post('/report', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const { brand, capacity, quantity, actualBurned, burnHours, temperature, humidity } = validation.data;
+    const userIdValidation = validateUserId(req.body.userId || req.query.userId, false);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { brand, capacity, quantity, actualBurned, burnHours, temperature, humidity, scene } = validation.data;
 
     const candle = storage.getCandleByBrandAndCapacity(brand, capacity);
     if (!candle) {
@@ -21,8 +27,9 @@ router.post('/report', (req, res) => {
     const inventoryItem = storage.addInventoryItem({
       brand,
       capacity,
-      quantity
-    });
+      quantity,
+      scene
+    }, userId);
 
     let burningRecord = null;
     let anomalies = [];
@@ -39,8 +46,9 @@ router.post('/report', (req, res) => {
         actualBurned,
         burnHours,
         temperature: temperature !== undefined ? temperature : 22,
-        humidity: humidity !== undefined ? humidity : 50
-      });
+        humidity: humidity !== undefined ? humidity : 50,
+        scene
+      }, userId);
 
       anomalies = consumptionService.detectAnomaly(burningRecord);
       if (anomalies.length > 0) {
@@ -48,12 +56,15 @@ router.post('/report', (req, res) => {
       }
     }
 
-    res.json(success({
+    const responseData = {
       inventory: inventoryItem,
       burningRecord,
       anomalies,
       tips
-    }, '库存上报成功'));
+    };
+    if (userId) responseData.userId = userId;
+
+    res.json(success(responseData, '库存上报成功'));
   } catch (err) {
     res.json(error(400, err.message));
   }
@@ -61,9 +72,24 @@ router.post('/report', (req, res) => {
 
 router.get('/', (req, res) => {
   try {
-    const { brand } = req.query;
-    const inventory = storage.getInventory(brand ? { brand } : {});
-    res.json(success(inventory));
+    const userIdValidation = validateUserId(req.query.userId, false);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { brand, scene } = req.query;
+
+    const filters = {};
+    if (userId) filters.userId = userId;
+    if (brand) filters.brand = brand;
+    if (scene) filters.scene = scene;
+
+    const inventory = storage.getInventory(filters);
+    const responseData = { inventory };
+    if (userId) responseData.userId = userId;
+
+    res.json(success(responseData));
   } catch (err) {
     res.json(error(500, '服务器错误', err.message));
   }

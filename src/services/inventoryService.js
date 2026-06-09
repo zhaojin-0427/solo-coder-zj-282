@@ -1,4 +1,4 @@
-const storage = require('../storage/memoryStorage');
+const { storage, DEFAULT_USER_ID } = require('../storage/memoryStorage');
 const consumptionService = require('./consumptionService');
 const { parsePositiveInteger, parseNumber } = require('../utils/validator');
 
@@ -72,8 +72,9 @@ function predictInventoryDays(inventoryItem, model) {
   };
 }
 
-function getInventoryPrediction() {
-  const inventory = storage.getInventory();
+function getInventoryPrediction(userId) {
+  const uid = userId || DEFAULT_USER_ID;
+  const inventory = storage.getInventory({ userId: uid });
   const predictions = [];
   const errors = [];
 
@@ -90,7 +91,7 @@ function getInventoryPrediction() {
       return;
     }
 
-    const model = storage.getConsumptionModel(candle.id);
+    const model = storage.getConsumptionModel(candle.id, uid);
     const prediction = predictInventoryDays(cleanedItem, model);
 
     const predictionData = {
@@ -163,10 +164,11 @@ function generateReplenishSuggestion(inventoryItem, candle, model, prediction) {
   };
 }
 
-function getReplenishmentAdvice() {
-  const result = getInventoryPrediction();
+function getReplenishmentAdvice(userId) {
+  const uid = userId || DEFAULT_USER_ID;
+  const result = getInventoryPrediction(uid);
   const predictions = result.predictions;
-  const brandEfficiencies = consumptionService.getBrandEfficiency();
+  const brandEfficiencies = consumptionService.getBrandEfficiency(uid);
 
   const urgentItems = predictions.filter(p => p.prediction && p.prediction.status === 'urgent');
   const warningItems = predictions.filter(p => p.prediction && p.prediction.status === 'warning');
@@ -213,8 +215,9 @@ function calculateTotalInventoryValue(predictions) {
   }, 0);
 }
 
-function getLowInventoryAlerts() {
-  const result = getInventoryPrediction();
+function getLowInventoryAlerts(userId) {
+  const uid = userId || DEFAULT_USER_ID;
+  const result = getInventoryPrediction(uid);
   const alerts = result.predictions.filter(p =>
     p.prediction && p.prediction.availableDays <= WARNING_DAYS
   ).map(p => ({
@@ -237,6 +240,7 @@ module.exports = {
   getInventoryPrediction,
   getReplenishmentAdvice,
   getLowInventoryAlerts,
+  calculateTotalInventoryValue,
   WARNING_DAYS,
   REPLENISH_THRESHOLD_DAYS
 };

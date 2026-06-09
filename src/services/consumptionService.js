@@ -1,4 +1,4 @@
-const storage = require('../storage/memoryStorage');
+const { storage, DEFAULT_USER_ID } = require('../storage/memoryStorage');
 
 const WAX_BURN_RATE = {
   soy: 6.5,
@@ -55,7 +55,8 @@ function calculateActualBurnRate(records) {
   return totalBurned / totalHours;
 }
 
-function buildConsumptionModel(candleId, records) {
+function buildConsumptionModel(candleId, records, userId) {
+  const uid = userId || DEFAULT_USER_ID;
   const candle = storage.getCandleById(candleId);
   if (!candle) return null;
 
@@ -72,7 +73,7 @@ function buildConsumptionModel(candleId, records) {
 
   const usagePattern = analyzeUsagePattern(records);
 
-  return {
+  const model = {
     candleId,
     brand: candle.brand,
     capacity: candle.capacity,
@@ -88,6 +89,9 @@ function buildConsumptionModel(candleId, records) {
     dataPoints: records.length,
     lastUpdated: Date.now()
   };
+
+  storage.saveConsumptionModel(candleId, model, uid);
+  return model;
 }
 
 function analyzeUsagePattern(records) {
@@ -119,9 +123,10 @@ function analyzeUsagePattern(records) {
   };
 }
 
-function getBrandEfficiency() {
+function getBrandEfficiency(userId) {
+  const uid = userId || DEFAULT_USER_ID;
   const candles = storage.getAllCandles();
-  const records = storage.getBurningRecords();
+  const records = storage.getBurningRecords({ userId: uid });
   const brandData = {};
 
   candles.forEach(candle => {
