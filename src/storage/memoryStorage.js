@@ -1,4 +1,4 @@
-const { normalizeCapacity, normalizeQuantity, parseInteger, parsePositiveInteger, parseNumber } = require('../utils/validator');
+const { normalizeCapacity, normalizeQuantity, parseInteger, parsePositiveInteger, parseStrictPositiveInteger, parseNumber } = require('../utils/validator');
 
 const DEFAULT_USER_ID = 'default';
 
@@ -43,6 +43,14 @@ class MemoryStorage {
     this.burningEvents = [];
     this.userSafetyProfiles = new Map();
     this.safetyAlerts = [];
+    this.recipientProfiles = new Map();
+    this.giftBoxThemes = [];
+    this.budgetRanges = [];
+    this.holidays = [];
+    this.relationshipTypes = [];
+    this.packagingPreferences = [];
+    this.subscriptionCycles = [];
+    this.giftBoxRecommendations = [];
     this._initDefaultData();
   }
 
@@ -267,6 +275,64 @@ class MemoryStorage {
         { value: 'evening', riskMultiplier: 1.1, description: '傍晚(18-22)，可能疲倦' },
         { value: 'night', riskMultiplier: 1.8, description: '深夜(22-6)，睡眠风险高' }
       ]}
+    ];
+
+    this.relationshipTypes = [
+      { id: 1, code: 'lover', name: '恋人/伴侣', description: '适合浪漫、温馨的香调', defaultTheme: 'romance' },
+      { id: 2, code: 'family', name: '家人/长辈', description: '适合温暖、贴心的香调', defaultTheme: 'warmth' },
+      { id: 3, code: 'friend', name: '朋友/闺蜜', description: '适合轻松、有趣的香调', defaultTheme: 'friendship' },
+      { id: 4, code: 'colleague', name: '同事/商务伙伴', description: '适合专业、雅致的香调', defaultTheme: 'elegant' },
+      { id: 5, code: 'teacher', name: '老师/恩师', description: '适合感恩、知性的香调', defaultTheme: 'gratitude' },
+      { id: 6, code: 'client', name: '客户', description: '适合高端、品味的香调', defaultTheme: 'premium' }
+    ];
+
+    this.giftBoxThemes = [
+      { id: 1, code: 'romance', name: '浪漫告白', description: '适合情人节、纪念日，以玫瑰、茉莉等花香为主', color: 'pink', suggestedFragrances: ['floral', 'oriental'] },
+      { id: 2, code: 'warmth', name: '温暖关怀', description: '适合感恩节、探望长辈，以木质、香草调为主', color: 'orange', suggestedFragrances: ['woody', 'gourmand'] },
+      { id: 3, code: 'friendship', name: '友情万岁', description: '适合生日、聚会，以清新、果香为主', color: 'yellow', suggestedFragrances: ['fresh', 'fruity'] },
+      { id: 4, code: 'elegant', name: '优雅品味', description: '适合商务场合、乔迁，以中性、木质调为主', color: 'gray', suggestedFragrances: ['woody', 'herbal'] },
+      { id: 5, code: 'gratitude', name: '感恩致谢', description: '适合教师节、父亲节，以沉稳、典雅香调为主', color: 'brown', suggestedFragrances: ['woody', 'oriental'] },
+      { id: 6, code: 'premium', name: '尊贵礼遇', description: '适合高端客户、重要场合，以东方调、珍稀香材为主', color: 'gold', suggestedFragrances: ['oriental', 'gourmand'] },
+      { id: 7, code: 'birthday', name: '生日惊喜', description: '适合生日庆祝，以甜美、欢乐香调为主', color: 'purple', suggestedFragrances: ['gourmand', 'fruity'] },
+      { id: 8, code: 'festival', name: '节日欢庆', description: '适合春节、圣诞节，以节日限定香调为主', color: 'red', suggestedFragrances: ['gourmand', 'woody'] },
+      { id: 9, code: 'relax', name: '放松疗愈', description: '适合压力大、需要放松的人，以薰衣草、檀香为主', color: 'blue', suggestedFragrances: ['herbal', 'woody'] },
+      { id: 10, code: 'fresh', name: '清新活力', description: '适合春夏、年轻活力的人，以柑橘、海洋调为主', color: 'cyan', suggestedFragrances: ['citrus', 'fresh'] }
+    ];
+
+    this.budgetRanges = [
+      { id: 1, code: 'budget', name: '经济实惠', min: 50, max: 150, description: '日常小礼物，包含1-2支蜡烛', candleCount: [1, 2] },
+      { id: 2, code: 'standard', name: '标准礼盒', min: 150, max: 300, description: '常规送礼，包含2-3支蜡烛', candleCount: [2, 3] },
+      { id: 3, code: 'premium', name: '高档礼盒', min: 300, max: 600, description: '重要场合，包含3-5支精选蜡烛', candleCount: [3, 5] },
+      { id: 4, code: 'luxury', name: '奢华定制', min: 600, max: 2000, description: '高端定制，包含5支以上高端蜡烛', candleCount: [5, 10] }
+    ];
+
+    this.holidays = [
+      { id: 1, code: 'valentines', name: '情人节', month: 2, day: 14, theme: 'romance', suggestedFragrances: ['floral', 'oriental'] },
+      { id: 2, code: 'mothers_day', name: '母亲节', month: 5, day: null, weekOfMonth: 2, dayOfWeek: 0, theme: 'warmth', suggestedFragrances: ['floral', 'gourmand'] },
+      { id: 3, code: 'fathers_day', name: '父亲节', month: 6, day: null, weekOfMonth: 3, dayOfWeek: 0, theme: 'gratitude', suggestedFragrances: ['woody', 'herbal'] },
+      { id: 4, code: 'christmas', name: '圣诞节', month: 12, day: 25, theme: 'festival', suggestedFragrances: ['gourmand', 'woody'] },
+      { id: 5, code: 'new_year', name: '元旦', month: 1, day: 1, theme: 'festival', suggestedFragrances: ['fresh', 'citrus'] },
+      { id: 6, code: 'spring_festival', name: '春节', month: null, day: null, lunar: true, theme: 'festival', suggestedFragrances: ['gourmand', 'floral'] },
+      { id: 7, code: 'mid_autumn', name: '中秋节', month: null, day: null, lunar: true, theme: 'warmth', suggestedFragrances: ['gourmand', 'floral'] },
+      { id: 8, code: 'teachers_day', name: '教师节', month: 9, day: 10, theme: 'gratitude', suggestedFragrances: ['woody', 'herbal'] },
+      { id: 9, code: 'anniversary', name: '纪念日', month: null, day: null, custom: true, theme: 'romance', suggestedFragrances: ['floral', 'oriental'] },
+      { id: 10, code: 'birthday', name: '生日', month: null, day: null, custom: true, theme: 'birthday', suggestedFragrances: ['gourmand', 'fruity'] }
+    ];
+
+    this.packagingPreferences = [
+      { id: 1, code: 'simple', name: '简约环保', description: '简约纸盒，环保材质，适合日常送礼', extraCost: 0 },
+      { id: 2, code: 'gift', name: '精美礼盒', description: '精装礼盒，丝带装饰，适合大多数场合', extraCost: 20 },
+      { id: 3, code: 'luxury', name: '奢华定制', description: '高端木盒，烫金工艺，可刻字定制', extraCost: 80 },
+      { id: 4, code: 'festive', name: '节日限定', description: '节日主题包装，配有贺卡和装饰品', extraCost: 30 },
+      { id: 5, code: 'eco', name: '环保有机', description: '全有机可降解材料，附赠植物种子', extraCost: 15 }
+    ];
+
+    this.subscriptionCycles = [
+      { id: 1, code: 'monthly', name: '月度订阅', durationMonths: 1, description: '每月一款精选香调，适合日常使用', discount: 0.95 },
+      { id: 2, code: 'bimonthly', name: '双月订阅', durationMonths: 2, description: '每两个月两款，搭配不同主题', discount: 0.9 },
+      { id: 3, code: 'quarterly', name: '季度订阅', durationMonths: 3, description: '每季度三款，应季精选', discount: 0.85 },
+      { id: 4, code: 'biannual', name: '半年订阅', durationMonths: 6, description: '半年六款，收藏级香调', discount: 0.8 },
+      { id: 5, code: 'annual', name: '年度订阅', durationMonths: 12, description: '全年十二款，会员专属礼遇', discount: 0.7 }
     ];
   }
 
@@ -1032,6 +1098,156 @@ class MemoryStorage {
       alert.acknowledgedAt = Date.now();
     }
     return alert;
+  }
+
+  getRelationshipTypes() {
+    return [...this.relationshipTypes];
+  }
+
+  getRelationshipTypeByCode(code) {
+    return this.relationshipTypes.find(r => r.code === code) || null;
+  }
+
+  getGiftBoxThemes() {
+    return [...this.giftBoxThemes];
+  }
+
+  getGiftBoxThemeByCode(code) {
+    return this.giftBoxThemes.find(t => t.code === code) || null;
+  }
+
+  getBudgetRanges() {
+    return [...this.budgetRanges];
+  }
+
+  getBudgetRangeByCode(code) {
+    return this.budgetRanges.find(b => b.code === code) || null;
+  }
+
+  getBudgetRangeForAmount(amount) {
+    const num = parseNumber(amount);
+    if (num === null) return null;
+    return this.budgetRanges.find(b => num >= b.min && num <= b.max) || null;
+  }
+
+  getHolidays() {
+    return [...this.holidays];
+  }
+
+  getHolidayByCode(code) {
+    return this.holidays.find(h => h.code === code) || null;
+  }
+
+  getHolidaysByMonth(month) {
+    const m = parseInteger(month);
+    if (m === null || m < 1 || m > 12) return [];
+    return this.holidays.filter(h => h.month === m);
+  }
+
+  getCurrentSeason() {
+    const month = new Date().getMonth() + 1;
+    if (month >= 3 && month <= 5) return 'spring';
+    if (month >= 6 && month <= 8) return 'summer';
+    if (month >= 9 && month <= 11) return 'autumn';
+    return 'winter';
+  }
+
+  getPackagingPreferences() {
+    return [...this.packagingPreferences];
+  }
+
+  getPackagingPreferenceByCode(code) {
+    return this.packagingPreferences.find(p => p.code === code) || null;
+  }
+
+  getSubscriptionCycles() {
+    return [...this.subscriptionCycles];
+  }
+
+  getSubscriptionCycleByCode(code) {
+    return this.subscriptionCycles.find(s => s.code === code) || null;
+  }
+
+  addRecipientProfile(profile, userId) {
+    const uid = normalizeUserId(userId);
+    const userKey = uid;
+    const userProfiles = this.recipientProfiles.get(userKey) || [];
+
+    const newProfile = {
+      ...profile,
+      id: userProfiles.length > 0 ? Math.max(...userProfiles.map(p => p.id)) + 1 : 1,
+      userId: uid,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    userProfiles.push(newProfile);
+    this.recipientProfiles.set(userKey, userProfiles);
+    return newProfile;
+  }
+
+  getRecipientProfiles(userId) {
+    const uid = normalizeUserId(userId);
+    const userProfiles = this.recipientProfiles.get(uid) || [];
+    return [...userProfiles];
+  }
+
+  getRecipientProfileById(profileId, userId) {
+    const uid = normalizeUserId(userId);
+    const id = parseStrictPositiveInteger(profileId);
+    if (id === null) return null;
+    const userProfiles = this.recipientProfiles.get(uid) || [];
+    return userProfiles.find(p => p.id === id) || null;
+  }
+
+  updateRecipientProfile(profileId, updates, userId) {
+    const uid = normalizeUserId(userId);
+    const id = parseStrictPositiveInteger(profileId);
+    if (id === null) return null;
+    const userProfiles = this.recipientProfiles.get(uid) || [];
+    const profile = userProfiles.find(p => p.id === id);
+    if (profile) {
+      Object.assign(profile, updates, { updatedAt: Date.now() });
+    }
+    return profile;
+  }
+
+  deleteRecipientProfile(profileId, userId) {
+    const uid = normalizeUserId(userId);
+    const id = parseStrictPositiveInteger(profileId);
+    if (id === null) return null;
+    const userProfiles = this.recipientProfiles.get(uid) || [];
+    const index = userProfiles.findIndex(p => p.id === id);
+    if (index !== -1) {
+      const deleted = userProfiles.splice(index, 1)[0];
+      this.recipientProfiles.set(uid, userProfiles);
+      return deleted;
+    }
+    return null;
+  }
+
+  saveGiftBoxRecommendation(recommendation, userId) {
+    const uid = normalizeUserId(userId);
+    const newRec = {
+      ...recommendation,
+      id: this.giftBoxRecommendations.length + 1,
+      userId: uid,
+      createdAt: Date.now()
+    };
+    this.giftBoxRecommendations.push(newRec);
+    return newRec;
+  }
+
+  getGiftBoxRecommendations(userId, filters = {}) {
+    const uid = normalizeUserId(userId);
+    let recs = this.giftBoxRecommendations.filter(r => r && r.userId === uid);
+    if (filters.recipientProfileId) {
+      const pid = parseStrictPositiveInteger(filters.recipientProfileId);
+      if (pid !== null) {
+        recs = recs.filter(r => r.recipientProfileId === pid);
+      }
+    }
+    return recs.sort((a, b) => b.createdAt - a.createdAt);
   }
 }
 

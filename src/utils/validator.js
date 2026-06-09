@@ -1192,6 +1192,671 @@ function validateRiskAssessmentQuery(query) {
   };
 }
 
+const VALID_RELATIONSHIP_TYPES = ['lover', 'family', 'friend', 'colleague', 'teacher', 'client'];
+const VALID_AGE_GROUPS = ['child', 'teen', 'young_adult', 'adult', 'middle_aged', 'senior'];
+const VALID_GIFT_OCCASIONS = ['birthday', 'anniversary', 'valentines', 'mothers_day', 'fathers_day', 'christmas', 'new_year', 'spring_festival', 'mid_autumn', 'teachers_day', 'graduation', 'housewarming', 'wedding', 'baby_shower', 'thank_you', 'get_well', 'just_because'];
+const VALID_PACKAGING_PREFERENCES = ['simple', 'gift', 'luxury', 'festive', 'eco'];
+const VALID_SUBSCRIPTION_CYCLES = ['monthly', 'bimonthly', 'quarterly', 'biannual', 'annual'];
+const VALID_GIFT_BOX_THEMES = ['romance', 'warmth', 'friendship', 'elegant', 'gratitude', 'premium', 'birthday', 'festival', 'relax', 'fresh'];
+
+function validateAgeGroup(ageGroup, required = false) {
+  if (!required && (ageGroup === undefined || ageGroup === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_AGE_GROUPS.includes(ageGroup)) {
+    return { valid: false, errors: [`年龄段必须是以下值之一: ${VALID_AGE_GROUPS.join(', ')}`] };
+  }
+  return { valid: true, data: ageGroup };
+}
+
+function validateRelationshipType(relationship, required = true) {
+  if (!required && (relationship === undefined || relationship === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_RELATIONSHIP_TYPES.includes(relationship)) {
+    return { valid: false, errors: [`关系类型必须是以下值之一: ${VALID_RELATIONSHIP_TYPES.join(', ')}`], validTypes: VALID_RELATIONSHIP_TYPES };
+  }
+  return { valid: true, data: relationship };
+}
+
+function validateGiftOccasion(occasion, required = false) {
+  if (!required && (occasion === undefined || occasion === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_GIFT_OCCASIONS.includes(occasion)) {
+    return { valid: false, errors: [`送礼场景必须是以下值之一: ${VALID_GIFT_OCCASIONS.join(', ')}`] };
+  }
+  return { valid: true, data: occasion };
+}
+
+function validatePackagingPreference(packaging, required = false) {
+  if (!required && (packaging === undefined || packaging === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_PACKAGING_PREFERENCES.includes(packaging)) {
+    return { valid: false, errors: [`包装偏好必须是以下值之一: ${VALID_PACKAGING_PREFERENCES.join(', ')}`] };
+  }
+  return { valid: true, data: packaging };
+}
+
+function validateSubscriptionCycle(cycle, required = false) {
+  if (!required && (cycle === undefined || cycle === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_SUBSCRIPTION_CYCLES.includes(cycle)) {
+    return { valid: false, errors: [`订阅周期必须是以下值之一: ${VALID_SUBSCRIPTION_CYCLES.join(', ')}`] };
+  }
+  return { valid: true, data: cycle };
+}
+
+function validateGiftBoxTheme(theme, required = false) {
+  if (!required && (theme === undefined || theme === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (!VALID_GIFT_BOX_THEMES.includes(theme)) {
+    return { valid: false, errors: [`礼盒主题必须是以下值之一: ${VALID_GIFT_BOX_THEMES.join(', ')}`] };
+  }
+  return { valid: true, data: theme };
+}
+
+function validateBudget(minBudget, maxBudget, required = true) {
+  const errors = [];
+  const result = {};
+
+  if (required && (minBudget === undefined || minBudget === null) && (maxBudget === undefined || maxBudget === null)) {
+    errors.push('预算 minBudget 或 maxBudget 至少提供一个');
+    return { valid: false, errors };
+  }
+
+  if (minBudget !== undefined && minBudget !== null) {
+    const min = parsePositiveNumber(minBudget);
+    if (min === null || min < 0) {
+      errors.push('minBudget 必须是有效的非负数');
+    } else {
+      result.minBudget = min;
+    }
+  }
+
+  if (maxBudget !== undefined && maxBudget !== null) {
+    const max = parsePositiveNumber(maxBudget);
+    if (max === null || max <= 0) {
+      errors.push('maxBudget 必须是有效的正数');
+    } else {
+      result.maxBudget = max;
+    }
+  }
+
+  if (result.minBudget !== undefined && result.maxBudget !== undefined) {
+    if (result.minBudget > result.maxBudget) {
+      errors.push('minBudget 不能大于 maxBudget');
+    }
+  }
+
+  if (result.maxBudget !== undefined && result.maxBudget < 50) {
+    errors.push('maxBudget 不能低于最低预算 50 元');
+  }
+
+  if (result.minBudget !== undefined && result.minBudget > 2000) {
+    errors.push('minBudget 不能超过最高预算 2000 元');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateDate(dateStr, fieldName, required = false) {
+  if (!required && (dateStr === undefined || dateStr === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (typeof dateStr !== 'string' || dateStr.trim() === '') {
+    return { valid: false, errors: [`${fieldName} 必须是非空字符串`] };
+  }
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return { valid: false, errors: [`${fieldName} 必须是有效的日期格式 (YYYY-MM-DD)`] };
+  }
+  return { valid: true, data: date.toISOString().split('T')[0] };
+}
+
+function validateForbiddenTags(tags, fieldName = 'forbiddenTags') {
+  if (tags === undefined || tags === null) {
+    return { valid: true, data: [] };
+  }
+  return validateStringArray(tags, fieldName, 32, false);
+}
+
+function validateRecipientProfile(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 64) {
+      errors.push('name 长度不能超过64个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.gender !== undefined && body.gender !== null) {
+    if (!['male', 'female', 'other'].includes(body.gender)) {
+      errors.push('gender 必须是 male、female 或 other');
+    } else {
+      result.gender = body.gender;
+    }
+  }
+
+  const ageGroupValidation = validateAgeGroup(body.ageGroup, true);
+  if (!ageGroupValidation.valid) {
+    errors.push(...ageGroupValidation.errors);
+  } else {
+    result.ageGroup = ageGroupValidation.data;
+  }
+
+  const relationshipValidation = validateRelationshipType(body.relationship, true);
+  if (!relationshipValidation.valid) {
+    errors.push(...relationshipValidation.errors);
+  } else {
+    result.relationship = relationshipValidation.data;
+  }
+
+  if (body.preferredScents !== undefined) {
+    const scentsValidation = validateStringArray(body.preferredScents, 'preferredScents', 32, false);
+    if (!scentsValidation.valid) {
+      errors.push(...scentsValidation.errors);
+    } else if (scentsValidation.data !== undefined) {
+      result.preferredScents = scentsValidation.data;
+    }
+  }
+
+  const allergyValidation = validateForbiddenTags(body.allergyTags, 'allergyTags');
+  if (!allergyValidation.valid) {
+    errors.push(...allergyValidation.errors);
+  } else if (allergyValidation.data !== undefined) {
+    result.allergyTags = allergyValidation.data;
+  }
+
+  const excludeValidation = validateForbiddenTags(body.excludeTags, 'excludeTags');
+  if (!excludeValidation.valid) {
+    errors.push(...excludeValidation.errors);
+  } else if (excludeValidation.data !== undefined) {
+    result.excludeTags = excludeValidation.data;
+  }
+
+  if (result.allergyTags && result.excludeTags) {
+    const overlap = result.allergyTags.filter(t => result.excludeTags.includes(t));
+    if (overlap.length > 0) {
+      errors.push(`过敏标签与排斥标签存在重复: ${overlap.join(', ')}`);
+    }
+  }
+
+  if (body.giftOccasions !== undefined) {
+    const occasions = Array.isArray(body.giftOccasions) ? body.giftOccasions : [body.giftOccasions];
+    const validatedOccasions = [];
+    for (let i = 0; i < occasions.length; i++) {
+      const occValidation = validateGiftOccasion(occasions[i], false);
+      if (!occValidation.valid) {
+        errors.push(`giftOccasions[${i}]: ${occValidation.errors[0]}`);
+      } else if (occValidation.data !== undefined) {
+        validatedOccasions.push(occValidation.data);
+      }
+    }
+    if (validatedOccasions.length > 0) {
+      result.giftOccasions = [...new Set(validatedOccasions)];
+    }
+  }
+
+  const budgetValidation = validateBudget(body.minBudget, body.maxBudget, false);
+  if (!budgetValidation.valid) {
+    errors.push(...budgetValidation.errors);
+  } else {
+    if (budgetValidation.data.minBudget !== undefined) result.minBudget = budgetValidation.data.minBudget;
+    if (budgetValidation.data.maxBudget !== undefined) result.maxBudget = budgetValidation.data.maxBudget;
+  }
+
+  const deliveryDateValidation = validateDate(body.expectedDeliveryDate, 'expectedDeliveryDate', false);
+  if (!deliveryDateValidation.valid) {
+    errors.push(...deliveryDateValidation.errors);
+  } else if (deliveryDateValidation.data !== undefined) {
+    result.expectedDeliveryDate = deliveryDateValidation.data;
+  }
+
+  const packagingValidation = validatePackagingPreference(body.packagingPreference, false);
+  if (!packagingValidation.valid) {
+    errors.push(...packagingValidation.errors);
+  } else if (packagingValidation.data !== undefined) {
+    result.packagingPreference = packagingValidation.data;
+  }
+
+  const themeValidation = validateGiftBoxTheme(body.preferredTheme, false);
+  if (!themeValidation.valid) {
+    errors.push(...themeValidation.errors);
+  } else if (themeValidation.data !== undefined) {
+    result.preferredTheme = themeValidation.data;
+  }
+
+  if (body.intensityPreference !== undefined) {
+    const intensityValidation = validateIntensity(body.intensityPreference);
+    if (!intensityValidation.valid) {
+      errors.push(...intensityValidation.errors);
+    } else {
+      result.intensityPreference = intensityValidation.data;
+    }
+  }
+
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== 'string') {
+      errors.push('notes 必须是字符串');
+    } else if (body.notes.length > 500) {
+      errors.push('notes 长度不能超过500个字符');
+    } else {
+      result.notes = body.notes.trim();
+    }
+  }
+
+  if (body.userId !== undefined) {
+    const userIdValidation = validateUserId(body.userId, false);
+    if (!userIdValidation.valid) {
+      errors.push(...userIdValidation.errors);
+    } else if (userIdValidation.data !== undefined) {
+      result.userId = userIdValidation.data;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateGiftBoxRecommendationQuery(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.recipientProfileId !== undefined && body.recipientProfileId !== null) {
+    const profileId = parseStrictPositiveInteger(body.recipientProfileId);
+    if (profileId === null) {
+      errors.push('recipientProfileId 必须是有效的正整数');
+    } else {
+      result.recipientProfileId = profileId;
+    }
+  }
+
+  if (!result.recipientProfileId) {
+    if (!body.relationship && !body.ageGroup && !body.preferredScents) {
+      errors.push('必须提供 recipientProfileId，或至少提供 relationship、ageGroup、preferredScents 中的一项');
+    }
+  }
+
+  const relationshipValidation = validateRelationshipType(body.relationship, false);
+  if (!relationshipValidation.valid) {
+    errors.push(...relationshipValidation.errors);
+  } else if (relationshipValidation.data !== undefined) {
+    result.relationship = relationshipValidation.data;
+  }
+
+  const ageGroupValidation = validateAgeGroup(body.ageGroup, false);
+  if (!ageGroupValidation.valid) {
+    errors.push(...ageGroupValidation.errors);
+  } else if (ageGroupValidation.data !== undefined) {
+    result.ageGroup = ageGroupValidation.data;
+  }
+
+  if (body.preferredScents !== undefined) {
+    const scentsValidation = validateStringArray(body.preferredScents, 'preferredScents', 32, false);
+    if (!scentsValidation.valid) {
+      errors.push(...scentsValidation.errors);
+    } else if (scentsValidation.data !== undefined) {
+      result.preferredScents = scentsValidation.data;
+    }
+  }
+
+  const allergyValidation = validateForbiddenTags(body.allergyTags, 'allergyTags');
+  if (!allergyValidation.valid) {
+    errors.push(...allergyValidation.errors);
+  } else if (allergyValidation.data !== undefined) {
+    result.allergyTags = allergyValidation.data;
+  }
+
+  const excludeValidation = validateForbiddenTags(body.excludeTags, 'excludeTags');
+  if (!excludeValidation.valid) {
+    errors.push(...excludeValidation.errors);
+  } else if (excludeValidation.data !== undefined) {
+    result.excludeTags = excludeValidation.data;
+  }
+
+  if (result.allergyTags && result.excludeTags) {
+    const overlap = result.allergyTags.filter(t => result.excludeTags.includes(t));
+    if (overlap.length > 0) {
+      errors.push(`过敏标签与排斥标签存在重复: ${overlap.join(', ')}`);
+    }
+  }
+
+  const occasionValidation = validateGiftOccasion(body.occasion, false);
+  if (!occasionValidation.valid) {
+    errors.push(...occasionValidation.errors);
+  } else if (occasionValidation.data !== undefined) {
+    result.occasion = occasionValidation.data;
+  }
+
+  const budgetValidation = validateBudget(body.minBudget, body.maxBudget, false);
+  if (!budgetValidation.valid) {
+    errors.push(...budgetValidation.errors);
+  } else {
+    if (budgetValidation.data.minBudget !== undefined) result.minBudget = budgetValidation.data.minBudget;
+    if (budgetValidation.data.maxBudget !== undefined) result.maxBudget = budgetValidation.data.maxBudget;
+  }
+
+  const themeValidation = validateGiftBoxTheme(body.theme, false);
+  if (!themeValidation.valid) {
+    errors.push(...themeValidation.errors);
+  } else if (themeValidation.data !== undefined) {
+    result.theme = themeValidation.data;
+  }
+
+  const seasonValidation = validateSeasonCode(body.season);
+  if (!seasonValidation.valid && body.season !== undefined && body.season !== null) {
+    errors.push(...seasonValidation.errors);
+  } else if (seasonValidation.data !== undefined) {
+    result.season = seasonValidation.data;
+  }
+
+  const packagingValidation = validatePackagingPreference(body.packagingPreference, false);
+  if (!packagingValidation.valid) {
+    errors.push(...packagingValidation.errors);
+  } else if (packagingValidation.data !== undefined) {
+    result.packagingPreference = packagingValidation.data;
+  }
+
+  if (body.maxCandles !== undefined && body.maxCandles !== null) {
+    const max = parseStrictPositiveInteger(body.maxCandles);
+    if (max === null || max < 1 || max > 10) {
+      errors.push('maxCandles 必须是1-10之间的正整数');
+    } else {
+      result.maxCandles = max;
+    }
+  }
+
+  const deliveryDateValidation = validateDate(body.expectedDeliveryDate, 'expectedDeliveryDate', false);
+  if (!deliveryDateValidation.valid) {
+    errors.push(...deliveryDateValidation.errors);
+  } else if (deliveryDateValidation.data !== undefined) {
+    result.expectedDeliveryDate = deliveryDateValidation.data;
+  }
+
+  if (body.intensityPreference !== undefined) {
+    const intensityValidation = validateIntensity(body.intensityPreference);
+    if (!intensityValidation.valid) {
+      errors.push(...intensityValidation.errors);
+    } else {
+      result.intensityPreference = intensityValidation.data;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateSubscriptionPlanQuery(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.recipientProfileId === undefined || body.recipientProfileId === null) {
+    errors.push('recipientProfileId 为必填项');
+  } else {
+    const profileId = parseStrictPositiveInteger(body.recipientProfileId);
+    if (profileId === null) {
+      errors.push('recipientProfileId 必须是有效的正整数');
+    } else {
+      result.recipientProfileId = profileId;
+    }
+  }
+
+  const cycleValidation = validateSubscriptionCycle(body.cycle, true);
+  if (!cycleValidation.valid) {
+    errors.push(...cycleValidation.errors);
+  } else {
+    result.cycle = cycleValidation.data;
+  }
+
+  const budgetValidation = validateBudget(body.minBudget, body.maxBudget, false);
+  if (!budgetValidation.valid) {
+    errors.push(...budgetValidation.errors);
+  } else {
+    if (budgetValidation.data.minBudget !== undefined) result.minBudget = budgetValidation.data.minBudget;
+    if (budgetValidation.data.maxBudget !== undefined) result.maxBudget = budgetValidation.data.maxBudget;
+  }
+
+  const themeValidation = validateGiftBoxTheme(body.preferredTheme, false);
+  if (!themeValidation.valid) {
+    errors.push(...themeValidation.errors);
+  } else if (themeValidation.data !== undefined) {
+    result.preferredTheme = themeValidation.data;
+  }
+
+  const packagingValidation = validatePackagingPreference(body.packagingPreference, false);
+  if (!packagingValidation.valid) {
+    errors.push(...packagingValidation.errors);
+  } else if (packagingValidation.data !== undefined) {
+    result.packagingPreference = packagingValidation.data;
+  }
+
+  if (body.startDate !== undefined) {
+    const startDateValidation = validateDate(body.startDate, 'startDate', false);
+    if (!startDateValidation.valid) {
+      errors.push(...startDateValidation.errors);
+    } else if (startDateValidation.data !== undefined) {
+      result.startDate = startDateValidation.data;
+    }
+  }
+
+  if (body.months !== undefined && body.months !== null) {
+    const months = parseStrictPositiveInteger(body.months);
+    if (months === null || months < 1 || months > 24) {
+      errors.push('months 必须是1-24之间的正整数');
+    } else {
+      result.months = months;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateBudgetCombinationQuery(body) {
+  const errors = [];
+  const result = {};
+
+  const budgetValidation = validateBudget(body.minBudget, body.maxBudget, true);
+  if (!budgetValidation.valid) {
+    errors.push(...budgetValidation.errors);
+  } else {
+    if (budgetValidation.data.minBudget !== undefined) result.minBudget = budgetValidation.data.minBudget;
+    if (budgetValidation.data.maxBudget !== undefined) result.maxBudget = budgetValidation.data.maxBudget;
+  }
+
+  if (body.recipientProfileId !== undefined && body.recipientProfileId !== null) {
+    const profileId = parseStrictPositiveInteger(body.recipientProfileId);
+    if (profileId === null) {
+      errors.push('recipientProfileId 必须是有效的正整数');
+    } else {
+      result.recipientProfileId = profileId;
+    }
+  }
+
+  const relationshipValidation = validateRelationshipType(body.relationship, false);
+  if (!relationshipValidation.valid) {
+    errors.push(...relationshipValidation.errors);
+  } else if (relationshipValidation.data !== undefined) {
+    result.relationship = relationshipValidation.data;
+  }
+
+  if (body.preferredScents !== undefined) {
+    const scentsValidation = validateStringArray(body.preferredScents, 'preferredScents', 32, false);
+    if (!scentsValidation.valid) {
+      errors.push(...scentsValidation.errors);
+    } else if (scentsValidation.data !== undefined) {
+      result.preferredScents = scentsValidation.data;
+    }
+  }
+
+  const allergyValidation = validateForbiddenTags(body.allergyTags, 'allergyTags');
+  if (!allergyValidation.valid) {
+    errors.push(...allergyValidation.errors);
+  } else if (allergyValidation.data !== undefined) {
+    result.allergyTags = allergyValidation.data;
+  }
+
+  const excludeValidation = validateForbiddenTags(body.excludeTags, 'excludeTags');
+  if (!excludeValidation.valid) {
+    errors.push(...excludeValidation.errors);
+  } else if (excludeValidation.data !== undefined) {
+    result.excludeTags = excludeValidation.data;
+  }
+
+  if (body.maxCombinations !== undefined && body.maxCombinations !== null) {
+    const max = parseStrictPositiveInteger(body.maxCombinations);
+    if (max === null || max < 1 || max > 20) {
+      errors.push('maxCombinations 必须是1-20之间的正整数');
+    } else {
+      result.maxCombinations = max;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateStockAlternativeQuery(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.candleIds || !Array.isArray(body.candleIds) || body.candleIds.length === 0) {
+    errors.push('candleIds 为必填项且必须是非空数组');
+  } else {
+    const validatedIds = [];
+    for (let i = 0; i < body.candleIds.length; i++) {
+      const id = parseStrictPositiveInteger(body.candleIds[i]);
+      if (id === null) {
+        errors.push(`candleIds[${i}] 必须是有效的正整数`);
+      } else {
+        validatedIds.push(id);
+      }
+    }
+    if (validatedIds.length > 0) {
+      result.candleIds = [...new Set(validatedIds)];
+    }
+  }
+
+  if (body.recipientProfileId !== undefined && body.recipientProfileId !== null) {
+    const profileId = parseStrictPositiveInteger(body.recipientProfileId);
+    if (profileId === null) {
+      errors.push('recipientProfileId 必须是有效的正整数');
+    } else {
+      result.recipientProfileId = profileId;
+    }
+  }
+
+  const relationshipValidation = validateRelationshipType(body.relationship, false);
+  if (!relationshipValidation.valid) {
+    errors.push(...relationshipValidation.errors);
+  } else if (relationshipValidation.data !== undefined) {
+    result.relationship = relationshipValidation.data;
+  }
+
+  if (body.preferredScents !== undefined) {
+    const scentsValidation = validateStringArray(body.preferredScents, 'preferredScents', 32, false);
+    if (!scentsValidation.valid) {
+      errors.push(...scentsValidation.errors);
+    } else if (scentsValidation.data !== undefined) {
+      result.preferredScents = scentsValidation.data;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateGiftMessageQuery(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.recipientProfileId === undefined || body.recipientProfileId === null) {
+    errors.push('recipientProfileId 为必填项');
+  } else {
+    const profileId = parseStrictPositiveInteger(body.recipientProfileId);
+    if (profileId === null) {
+      errors.push('recipientProfileId 必须是有效的正整数');
+    } else {
+      result.recipientProfileId = profileId;
+    }
+  }
+
+  const occasionValidation = validateGiftOccasion(body.occasion, true);
+  if (!occasionValidation.valid) {
+    errors.push(...occasionValidation.errors);
+  } else {
+    result.occasion = occasionValidation.data;
+  }
+
+  if (body.candleIds !== undefined) {
+    if (!Array.isArray(body.candleIds)) {
+      errors.push('candleIds 必须是数组');
+    } else {
+      const validatedIds = [];
+      for (let i = 0; i < body.candleIds.length; i++) {
+        const id = parseStrictPositiveInteger(body.candleIds[i]);
+        if (id === null) {
+          errors.push(`candleIds[${i}] 必须是有效的正整数`);
+        } else {
+          validatedIds.push(id);
+        }
+      }
+      if (validatedIds.length > 0) {
+        result.candleIds = validatedIds;
+      }
+    }
+  }
+
+  const themeValidation = validateGiftBoxTheme(body.theme, false);
+  if (!themeValidation.valid) {
+    errors.push(...themeValidation.errors);
+  } else if (themeValidation.data !== undefined) {
+    result.theme = themeValidation.data;
+  }
+
+  if (body.tone !== undefined) {
+    if (!['warm', 'romantic', 'formal', 'casual', 'humorous', 'touching'].includes(body.tone)) {
+      errors.push('tone 必须是 warm、romantic、formal、casual、humorous 或 touching');
+    } else {
+      result.tone = body.tone;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
 module.exports = {
   parseNumber,
   parseInteger,
@@ -1232,5 +1897,26 @@ module.exports = {
   validateEventType,
   validateInspectionType,
   validateDistance,
-  validateWickLength
+  validateWickLength,
+  validateAgeGroup,
+  validateRelationshipType,
+  validateGiftOccasion,
+  validatePackagingPreference,
+  validateSubscriptionCycle,
+  validateGiftBoxTheme,
+  validateBudget,
+  validateDate,
+  validateForbiddenTags,
+  validateRecipientProfile,
+  validateGiftBoxRecommendationQuery,
+  validateSubscriptionPlanQuery,
+  validateBudgetCombinationQuery,
+  validateStockAlternativeQuery,
+  validateGiftMessageQuery,
+  VALID_RELATIONSHIP_TYPES,
+  VALID_AGE_GROUPS,
+  VALID_GIFT_OCCASIONS,
+  VALID_PACKAGING_PREFERENCES,
+  VALID_SUBSCRIPTION_CYCLES,
+  VALID_GIFT_BOX_THEMES
 };

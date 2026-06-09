@@ -16,6 +16,12 @@ const {
   validateSafetyInspection,
   validateBurningEvent,
   validateRiskAssessmentQuery,
+  validateRecipientProfile,
+  validateGiftBoxRecommendationQuery,
+  validateSubscriptionPlanQuery,
+  validateBudgetCombinationQuery,
+  validateStockAlternativeQuery,
+  validateGiftMessageQuery,
   parseStrictPositiveInteger,
   parseNumber
 } = require('../utils/validator');
@@ -25,6 +31,7 @@ const tipsService = require('../services/tipsService');
 const userProfileService = require('../services/userProfileService');
 const recommendationService = require('../services/recommendationService');
 const safetyService = require('../services/safetyService');
+const giftBoxService = require('../services/giftBoxService');
 
 router.post('/inventory/report', (req, res) => {
   try {
@@ -1360,6 +1367,427 @@ router.get('/safety/active-session', (req, res) => {
       activeSessions: enrichedSessions,
       count: enrichedSessions.length
     }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/recipient', (req, res) => {
+  try {
+    const validation = validateRecipientProfile(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const profile = storage.addRecipientProfile(validation.data, userId);
+    res.json(success({ userId, profile }, '收礼人档案创建成功'));
+  } catch (err) {
+    res.json(error(400, err.message));
+  }
+});
+
+router.get('/gift-box/recipients', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const profiles = storage.getRecipientProfiles(userId);
+    res.json(success({ userId, profiles, count: profiles.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/recipient/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const parsedId = parseStrictPositiveInteger(id);
+    if (parsedId === null) {
+      return res.json(error(400, '收礼人ID必须是有效的正整数（≥1）'));
+    }
+
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const profile = storage.getRecipientProfileById(parsedId, userId);
+    if (!profile) {
+      return res.json(error(404, '未找到该收礼人档案'));
+    }
+
+    res.json(success({ userId, profile }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.put('/gift-box/recipient/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const parsedId = parseStrictPositiveInteger(id);
+    if (parsedId === null) {
+      return res.json(error(400, '收礼人ID必须是有效的正整数（≥1）'));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const existing = storage.getRecipientProfileById(parsedId, userId);
+    if (!existing) {
+      return res.json(error(404, '未找到该收礼人档案'));
+    }
+
+    const validation = validateRecipientProfile(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const profile = storage.updateRecipientProfile(parsedId, validation.data, userId);
+    res.json(success({ userId, profile }, '收礼人档案更新成功'));
+  } catch (err) {
+    res.json(error(400, err.message));
+  }
+});
+
+router.delete('/gift-box/recipient/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const parsedId = parseStrictPositiveInteger(id);
+    if (parsedId === null) {
+      return res.json(error(400, '收礼人ID必须是有效的正整数（≥1）'));
+    }
+
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const existing = storage.getRecipientProfileById(parsedId, userId);
+    if (!existing) {
+      return res.json(error(404, '未找到该收礼人档案'));
+    }
+
+    const deleted = storage.deleteRecipientProfile(parsedId, userId);
+    res.json(success({ userId, deleted }, '收礼人档案删除成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/recommend', (req, res) => {
+  try {
+    const validation = validateGiftBoxRecommendationQuery(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { recipientProfileId, relationship, ageGroup, preferredScents,
+      allergyTags, excludeTags, minBudget, maxBudget, occasion, theme,
+      intensityPreference, packagingPreference, expectedDeliveryDate,
+      maxCandles, allowOutOfStock } = validation.data;
+
+    if (!recipientProfileId && !relationship) {
+      return res.json(error(400, '至少需要提供 recipientProfileId 或 relationship 中的一个参数'));
+    }
+
+    const result = giftBoxService.generateGiftBoxRecommendation(userId, {
+      recipientProfileId,
+      relationship,
+      ageGroup,
+      preferredScents,
+      allergyTags,
+      excludeTags,
+      minBudget,
+      maxBudget,
+      occasion,
+      theme,
+      intensityPreference,
+      packagingPreference,
+      expectedDeliveryDate,
+      maxCandles,
+      allowOutOfStock
+    });
+
+    if (result.status === 'no_recipient') {
+      return res.json(error(404, result.message, { userId, ...result }));
+    }
+
+    if (result.status === 'no_inventory') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    if (result.status === 'no_suitable') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    if (result.status === 'over_budget') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    res.json(success({ userId, ...result }, '礼盒推荐生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/subscription', (req, res) => {
+  try {
+    const validation = validateSubscriptionPlanQuery(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { recipientProfileId, cycle, minBudget, maxBudget, preferredTheme,
+      packagingPreference, startDate, maxCandlesPerBox, includeOccasions } = validation.data;
+
+    if (!recipientProfileId && !validation.data.relationship) {
+      return res.json(error(400, '至少需要提供 recipientProfileId 或 relationship 中的一个参数'));
+    }
+
+    const result = giftBoxService.generateSubscriptionPlan(userId, {
+      recipientProfileId,
+      cycle,
+      minBudget,
+      maxBudget,
+      preferredTheme,
+      packagingPreference,
+      startDate,
+      maxCandlesPerBox,
+      includeOccasions,
+      relationship: validation.data.relationship,
+      ageGroup: validation.data.ageGroup,
+      preferredScents: validation.data.preferredScents,
+      allergyTags: validation.data.allergyTags,
+      excludeTags: validation.data.excludeTags,
+      intensityPreference: validation.data.intensityPreference
+    });
+
+    if (result.status === 'no_recipient') {
+      return res.json(error(404, result.message, { userId, ...result }));
+    }
+
+    if (result.status === 'no_inventory') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    res.json(success({ userId, ...result }, '订阅计划生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/budget-combinations', (req, res) => {
+  try {
+    const validation = validateBudgetCombinationQuery(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { minBudget, maxBudget, recipientProfileId, relationship, ageGroup,
+      preferredScents, allergyTags, excludeTags, occasion, theme,
+      intensityPreference, maxCombinations, minItems, maxItems } = validation.data;
+
+    const result = giftBoxService.generateBudgetCombinations(userId, {
+      minBudget,
+      maxBudget,
+      recipientProfileId,
+      relationship,
+      ageGroup,
+      preferredScents,
+      allergyTags,
+      excludeTags,
+      occasion,
+      theme,
+      intensityPreference,
+      maxCombinations,
+      minItems,
+      maxItems
+    });
+
+    if (result.status === 'no_inventory') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    if (result.status === 'no_combinations') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    res.json(success({ userId, ...result }, '预算内组合生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/stock-alternatives', (req, res) => {
+  try {
+    const validation = validateStockAlternativeQuery(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { candleIds, recipientProfileId, relationship, ageGroup,
+      preferredScents, allergyTags, excludeTags, maxAlternatives } = validation.data;
+
+    for (const cid of candleIds) {
+      const candle = storage.getCandleById(cid);
+      if (!candle) {
+        return res.json(error(404, `未找到蜡烛产品 ID: ${cid}`));
+      }
+    }
+
+    const result = giftBoxService.generateStockAlternatives(userId, {
+      candleIds,
+      recipientProfileId,
+      relationship,
+      ageGroup,
+      preferredScents,
+      allergyTags,
+      excludeTags,
+      maxAlternatives
+    });
+
+    if (result.status === 'no_alternatives') {
+      return res.json(success({ userId, ...result }, result.message));
+    }
+
+    res.json(success({ userId, ...result }, '缺货替代方案生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/gift-box/gift-message', (req, res) => {
+  try {
+    const validation = validateGiftMessageQuery(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { recipientProfileId, occasion, theme, tone, relationship,
+      ageGroup, candleIds, customKeywords } = validation.data;
+
+    let recipient = null;
+    if (recipientProfileId) {
+      recipient = storage.getRecipientProfileById(recipientProfileId, userId);
+      if (!recipient) {
+        return res.json(error(404, '未找到该收礼人档案'));
+      }
+    } else {
+      recipient = {
+        relationship,
+        ageGroup,
+        name: validation.data.recipientName
+      };
+    }
+
+    const result = giftBoxService.generateGiftMessage(recipient, {
+      occasion,
+      theme,
+      tone,
+      candleIds,
+      customKeywords
+    });
+
+    res.json(success({ userId, messages: result }, '送礼文案生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/themes', (req, res) => {
+  try {
+    const themes = storage.getGiftBoxThemes();
+    res.json(success({ themes, count: themes.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/relationships', (req, res) => {
+  try {
+    const relationships = storage.getRelationshipTypes();
+    res.json(success({ relationships, count: relationships.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/holidays', (req, res) => {
+  try {
+    const holidays = storage.getHolidays();
+    res.json(success({ holidays, count: holidays.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/budgets', (req, res) => {
+  try {
+    const budgets = storage.getBudgetRanges();
+    res.json(success({ budgets, count: budgets.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/packaging', (req, res) => {
+  try {
+    const packaging = storage.getPackagingPreferences();
+    res.json(success({ packaging, count: packaging.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/gift-box/meta/cycles', (req, res) => {
+  try {
+    const cycles = storage.getSubscriptionCycles();
+    res.json(success({ cycles, count: cycles.length }));
   } catch (err) {
     res.json(error(500, '服务器错误', err.message));
   }

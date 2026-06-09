@@ -9,6 +9,7 @@ const multiUserRoutes = require('./routes/multiUser');
 const scentManagementRoutes = require('./routes/scentManagement');
 const userScentPreferencesRoutes = require('./routes/userScentPreferences');
 const recommendationsRoutes = require('./routes/recommendations');
+const giftBoxRoutes = require('./routes/giftBox');
 
 const app = express();
 
@@ -28,8 +29,8 @@ app.get('/', (req, res) => {
   const { success } = require('./utils/response');
   res.json(success({
     name: '香薰蜡烛燃烧时长预测与补货建议 API 服务',
-    version: '4.0.0',
-    description: '支持多用户使用画像与批次化补货计划，新增香薰气味偏好与场景化搭配推荐能力，新增蜡烛燃烧安全风险评估与家庭场景告警能力',
+    version: '5.0.0',
+    description: '支持多用户使用画像与批次化补货计划，新增香薰气味偏好与场景化搭配推荐能力，新增蜡烛燃烧安全风险评估与家庭场景告警能力，新增香薰蜡烛订阅礼盒与送礼人群匹配能力',
     endpoints: {
       singleUser: {
         inventory: {
@@ -79,6 +80,24 @@ app.get('/', (req, res) => {
           bySeason: 'GET /api/recommendations/by-season/:season',
           inventoryUsage: 'GET /api/recommendations/inventory-usage',
           purchaseSuggestions: 'GET /api/recommendations/purchase-suggestions'
+        },
+        giftBox: {
+          createRecipient: 'POST /api/gift-box/recipient',
+          listRecipients: 'GET /api/gift-box/recipients',
+          getRecipient: 'GET /api/gift-box/recipient/:id',
+          updateRecipient: 'PUT /api/gift-box/recipient/:id',
+          deleteRecipient: 'DELETE /api/gift-box/recipient/:id',
+          recommend: 'POST /api/gift-box/recommend',
+          subscription: 'POST /api/gift-box/subscription',
+          budgetCombinations: 'POST /api/gift-box/budget-combinations',
+          stockAlternatives: 'POST /api/gift-box/stock-alternatives',
+          giftMessage: 'POST /api/gift-box/gift-message',
+          metaThemes: 'GET /api/gift-box/meta/themes',
+          metaRelationships: 'GET /api/gift-box/meta/relationships',
+          metaHolidays: 'GET /api/gift-box/meta/holidays',
+          metaBudgets: 'GET /api/gift-box/meta/budgets',
+          metaPackaging: 'GET /api/gift-box/meta/packaging',
+          metaCycles: 'GET /api/gift-box/meta/cycles'
         }
       },
       multiUser: {
@@ -134,6 +153,24 @@ app.get('/', (req, res) => {
           getRules: 'GET /api/user/safety/rules',
           getRiskLevels: 'GET /api/user/safety/risk-levels',
           getFactors: 'GET /api/user/safety/factors'
+        },
+        giftBox: {
+          createRecipient: 'POST /api/user/gift-box/recipient?userId=xxx',
+          listRecipients: 'GET /api/user/gift-box/recipients?userId=xxx',
+          getRecipient: 'GET /api/user/gift-box/recipient/:id?userId=xxx',
+          updateRecipient: 'PUT /api/user/gift-box/recipient/:id?userId=xxx',
+          deleteRecipient: 'DELETE /api/user/gift-box/recipient/:id?userId=xxx',
+          recommend: 'POST /api/user/gift-box/recommend?userId=xxx',
+          subscription: 'POST /api/user/gift-box/subscription?userId=xxx',
+          budgetCombinations: 'POST /api/user/gift-box/budget-combinations?userId=xxx',
+          stockAlternatives: 'POST /api/user/gift-box/stock-alternatives?userId=xxx',
+          giftMessage: 'POST /api/user/gift-box/gift-message?userId=xxx',
+          metaThemes: 'GET /api/user/gift-box/meta/themes',
+          metaRelationships: 'GET /api/user/gift-box/meta/relationships',
+          metaHolidays: 'GET /api/user/gift-box/meta/holidays',
+          metaBudgets: 'GET /api/user/gift-box/meta/budgets',
+          metaPackaging: 'GET /api/user/gift-box/meta/packaging',
+          metaCycles: 'GET /api/user/gift-box/meta/cycles'
         }
       },
       commonParameters: {
@@ -156,7 +193,18 @@ app.get('/', (req, res) => {
         isPoorVentilation: '是否通风不良（true/false），安全因子',
         combustibleDistance: '可燃物距离（cm），安全因子',
         ventilationDistance: '通风距离（cm），安全因子',
-        wickLength: '烛芯长度（mm），安全因子'
+        wickLength: '烛芯长度（mm），安全因子',
+        relationship: '关系类型（lover、family、friend、colleague、teacher、client），礼盒接口使用',
+        ageGroup: '年龄段（child、teen、young_adult、adult、middle_aged、senior），礼盒接口使用',
+        giftOccasion: '送礼场景（birthday、anniversary、valentines 等17种），礼盒接口使用',
+        giftBoxTheme: '礼盒主题（romance、warmth、friendship 等10种），礼盒接口使用',
+        budgetRange: '预算区间（budget 50-150、standard 150-300、premium 300-600、luxury 600-2000），礼盒接口使用',
+        packagingPreference: '包装偏好（simple、gift、luxury、festive、eco），礼盒接口使用',
+        subscriptionCycle: '订阅周期（monthly、bimonthly、quarterly、biannual、annual），礼盒接口使用',
+        forbiddenTags: '禁忌香型标签（allergyTags 过敏、excludeTags 排斥），自动去重，礼盒接口使用',
+        matchScore: '匹配度评分（0-100），礼盒推荐结果返回',
+        tabooAvoided: '禁忌规避结果，礼盒推荐结果返回',
+        needsRestock: '是否需要补货，礼盒推荐结果返回'
       },
       errorCodes: {
         400: '参数校验失败/请求格式错误',
@@ -175,6 +223,7 @@ app.use('/api/user', multiUserRoutes);
 app.use('/api/scent', scentManagementRoutes);
 app.use('/api/scent-user', userScentPreferencesRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
+app.use('/api/gift-box', giftBoxRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
