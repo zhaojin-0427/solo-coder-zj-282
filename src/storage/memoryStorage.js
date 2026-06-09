@@ -1,3 +1,5 @@
+const { normalizeCapacity, normalizeQuantity, parseInteger, parsePositiveInteger } = require('../utils/validator');
+
 class MemoryStorage {
   constructor() {
     this.candles = [];
@@ -6,6 +8,17 @@ class MemoryStorage {
     this.consumptionModels = new Map();
     this.tips = [];
     this._initDefaultData();
+  }
+
+  _sanitizeInventoryItem(item) {
+    if (!item) return item;
+    const qty = parsePositiveInteger(item.quantity);
+    item.quantity = qty !== null ? qty : 0;
+    const cap = normalizeCapacity(item.capacity);
+    if (cap !== null) {
+      item.capacity = cap;
+    }
+    return item;
   }
 
   _initDefaultData() {
@@ -44,22 +57,58 @@ class MemoryStorage {
   }
 
   addInventoryItem(item) {
-    const existing = this.inventory.find(i => i.brand === item.brand && i.capacity === item.capacity);
+    const normalizedQuantity = normalizeQuantity(item.quantity);
+    if (normalizedQuantity === null) {
+      throw new Error('quantity 必须是有效的非负整数');
+    }
+
+    const normalizedCapacity = normalizeCapacity(item.capacity);
+    if (normalizedCapacity === null) {
+      throw new Error('capacity 必须是有效的正整数');
+    }
+
+    const existing = this.inventory.find(i =>
+      i.brand === item.brand && i.capacity === normalizedCapacity
+    );
+
     if (existing) {
-      existing.quantity += item.quantity;
+      this._sanitizeInventoryItem(existing);
+      existing.quantity += normalizedQuantity;
       existing.lastUpdated = Date.now();
       return existing;
     }
-    item.id = this.inventory.length + 1;
-    item.lastUpdated = Date.now();
-    this.inventory.push(item);
-    return item;
+
+    const newItem = {
+      ...item,
+      id: this.inventory.length + 1,
+      capacity: normalizedCapacity,
+      quantity: normalizedQuantity,
+      lastUpdated: Date.now()
+    };
+    this.inventory.push(newItem);
+    return newItem;
   }
 
   updateInventory(id, updates) {
     const item = this.inventory.find(i => i.id === id);
     if (item) {
-      Object.assign(item, updates, { lastUpdated: Date.now() });
+      this._sanitizeInventoryItem(item);
+      const safeUpdates = { ...updates };
+      if (safeUpdates.quantity !== undefined) {
+        const qty = normalizeQuantity(safeUpdates.quantity);
+        if (qty === null) {
+          throw new Error('quantity 必须是有效的非负整数');
+        }
+        safeUpdates.quantity = qty;
+      }
+      if (safeUpdates.capacity !== undefined) {
+        const cap = normalizeCapacity(safeUpdates.capacity);
+        if (cap === null) {
+          throw new Error('capacity 必须是有效的正整数');
+        }
+        safeUpdates.capacity = cap;
+      }
+      Object.assign(item, safeUpdates, { lastUpdated: Date.now() });
     }
     return item;
   }
@@ -73,7 +122,9 @@ class MemoryStorage {
   }
 
   getInventoryByBrandAndCapacity(brand, capacity) {
-    return this.inventory.find(i => i.brand === brand && i.capacity === capacity);
+    const normalizedCapacity = normalizeCapacity(capacity);
+    if (normalizedCapacity === null) return null;
+    return this.inventory.find(i => i.brand === brand && i.capacity === normalizedCapacity);
   }
 
   saveConsumptionModel(candleId, model) {
@@ -90,7 +141,9 @@ class MemoryStorage {
   }
 
   getCandleByBrandAndCapacity(brand, capacity) {
-    return this.candles.find(c => c.brand === brand && c.capacity === capacity);
+    const normalizedCapacity = normalizeCapacity(capacity);
+    if (normalizedCapacity === null) return null;
+    return this.candles.find(c => c.brand === brand && c.capacity === normalizedCapacity);
   }
 
   getCandleById(id) {
