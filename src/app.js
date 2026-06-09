@@ -28,8 +28,8 @@ app.get('/', (req, res) => {
   const { success } = require('./utils/response');
   res.json(success({
     name: '香薰蜡烛燃烧时长预测与补货建议 API 服务',
-    version: '3.0.0',
-    description: '支持多用户使用画像与批次化补货计划，新增香薰气味偏好与场景化搭配推荐能力',
+    version: '4.0.0',
+    description: '支持多用户使用画像与批次化补货计划，新增香薰气味偏好与场景化搭配推荐能力，新增蜡烛燃烧安全风险评估与家庭场景告警能力',
     endpoints: {
       singleUser: {
         inventory: {
@@ -118,6 +118,22 @@ app.get('/', (req, res) => {
           bySeason: 'GET /api/user/scent/recommendations/by-season/:season?userId=xxx',
           inventoryUsage: 'GET /api/user/scent/inventory-usage?userId=xxx',
           purchaseSuggestions: 'GET /api/user/scent/purchase-suggestions?userId=xxx'
+        },
+        safety: {
+          submitInspection: 'POST /api/user/safety/inspection?userId=xxx',
+          getInspections: 'GET /api/user/safety/inspections?userId=xxx',
+          reportBurningEvent: 'POST /api/user/safety/burning-event?userId=xxx',
+          getBurningEvents: 'GET /api/user/safety/burning-events?userId=xxx',
+          getSafetyProfile: 'GET /api/user/safety/profile?userId=xxx',
+          getRiskAssessment: 'GET /api/user/safety/risk-assessment?userId=xxx',
+          getRoomAlert: 'GET /api/user/safety/room-alert/:roomCode?userId=xxx',
+          getSuggestions: 'GET /api/user/safety/suggestions?userId=xxx',
+          getAlerts: 'GET /api/user/safety/alerts?userId=xxx',
+          acknowledgeAlert: 'POST /api/user/safety/alert/:alertId/acknowledge?userId=xxx',
+          getActiveSession: 'GET /api/user/safety/active-session?userId=xxx',
+          getRules: 'GET /api/user/safety/rules',
+          getRiskLevels: 'GET /api/user/safety/risk-levels',
+          getFactors: 'GET /api/user/safety/factors'
         }
       },
       commonParameters: {
@@ -131,7 +147,16 @@ app.get('/', (req, res) => {
         excludeTags: '排斥标签数组，自动去重',
         commonSpaces: '常用空间数组',
         desiredMoods: '期望氛围数组',
-        intensityPreference: '浓度偏好（light、medium、strong）'
+        intensityPreference: '浓度偏好（light、medium、strong）',
+        roomCode: '房间代码（如 living_room、bedroom 等），安全接口使用',
+        inspectionType: '检查类型（pre_use、during_use、post_use、environment、full）',
+        eventType: '事件类型（ignite 点燃、extinguish 熄灭、check 检查）',
+        hasChild: '是否有儿童在场（true/false），安全因子',
+        hasPet: '是否有宠物在场（true/false），安全因子',
+        isPoorVentilation: '是否通风不良（true/false），安全因子',
+        combustibleDistance: '可燃物距离（cm），安全因子',
+        ventilationDistance: '通风距离（cm），安全因子',
+        wickLength: '烛芯长度（mm），安全因子'
       },
       errorCodes: {
         400: '参数校验失败/请求格式错误',

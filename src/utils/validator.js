@@ -809,6 +809,389 @@ function validateRecommendationQuery(body) {
   };
 }
 
+function validateBoolean(value, fieldName, required = false) {
+  if (!required && (value === undefined || value === null)) {
+    return { valid: true, data: undefined };
+  }
+  if (typeof value === 'boolean') {
+    return { valid: true, data: value };
+  }
+  if (typeof value === 'string') {
+    const lower = value.trim().toLowerCase();
+    if (lower === 'true') return { valid: true, data: true };
+    if (lower === 'false') return { valid: true, data: false };
+  }
+  return { valid: false, errors: [`${fieldName} 必须是布尔值 (true/false)`] };
+}
+
+function validateEventType(eventType) {
+  const validTypes = ['ignite', 'extinguish', 'check'];
+  if (!validTypes.includes(eventType)) {
+    return { valid: false, errors: [`事件类型必须是以下值之一: ${validTypes.join(', ')}`] };
+  }
+  return { valid: true, data: eventType };
+}
+
+function validateInspectionType(inspectionType) {
+  const validTypes = ['pre_use', 'during_use', 'post_use', 'environment', 'full'];
+  if (!validTypes.includes(inspectionType)) {
+    return { valid: false, errors: [`检查类型必须是以下值之一: ${validTypes.join(', ')}`] };
+  }
+  return { valid: true, data: inspectionType };
+}
+
+function validateDistance(distance, fieldName, required = false) {
+  if (!required && (distance === undefined || distance === null)) {
+    return { valid: true, data: undefined };
+  }
+  const num = parsePositiveNumber(distance);
+  if (num === null || num < 0 || num > 1000) {
+    return { valid: false, errors: [`${fieldName} 必须是0-1000之间的有效数字（单位：cm）`] };
+  }
+  return { valid: true, data: num };
+}
+
+function validateWickLength(length, required = false) {
+  if (!required && (length === undefined || length === null)) {
+    return { valid: true, data: undefined };
+  }
+  const num = parsePositiveNumber(length);
+  if (num === null || num < 0 || num > 50) {
+    return { valid: false, errors: [`烛芯长度必须是0-50之间的有效数字（单位：mm）`] };
+  }
+  return { valid: true, data: num };
+}
+
+function validateSafetyInspection(body) {
+  const errors = [];
+  const result = {};
+
+  const inspectionTypeValidation = validateInspectionType(body.inspectionType);
+  if (!inspectionTypeValidation.valid) {
+    errors.push(...inspectionTypeValidation.errors);
+  } else {
+    result.inspectionType = inspectionTypeValidation.data;
+  }
+
+  if (body.candleId !== undefined && body.candleId !== null) {
+    const candleId = parsePositiveInteger(body.candleId);
+    if (candleId === null || candleId <= 0) {
+      errors.push('candleId 必须是有效的正整数');
+    } else {
+      result.candleId = candleId;
+    }
+  }
+
+  const sceneValidation = validateScene(body.roomCode, false);
+  if (!sceneValidation.valid) {
+    errors.push(...sceneValidation.errors);
+  } else if (sceneValidation.data !== undefined) {
+    result.roomCode = sceneValidation.data;
+  }
+
+  if (body.temperature !== undefined) {
+    const temp = parseNumber(body.temperature);
+    if (temp === null) {
+      errors.push('temperature 必须是有效的数字');
+    } else if (temp < -40 || temp > 60) {
+      errors.push('temperature 必须在合理范围内 (-40 ~ 60°C)');
+    } else {
+      result.temperature = temp;
+    }
+  }
+
+  if (body.humidity !== undefined) {
+    const humidity = parseNumber(body.humidity);
+    if (humidity === null) {
+      errors.push('humidity 必须是有效的数字');
+    } else if (humidity < 0 || humidity > 100) {
+      errors.push('humidity 必须在合理范围内 (0 ~ 100%)');
+    } else {
+      result.humidity = humidity;
+    }
+  }
+
+  const combustibleDistValidation = validateDistance(body.combustibleDistance, 'combustibleDistance', false);
+  if (!combustibleDistValidation.valid) {
+    errors.push(...combustibleDistValidation.errors);
+  } else if (combustibleDistValidation.data !== undefined) {
+    result.combustibleDistance = combustibleDistValidation.data;
+  }
+
+  const ventilationDistValidation = validateDistance(body.ventilationDistance, 'ventilationDistance', false);
+  if (!ventilationDistValidation.valid) {
+    errors.push(...ventilationDistValidation.errors);
+  } else if (ventilationDistValidation.data !== undefined) {
+    result.ventilationDistance = ventilationDistValidation.data;
+  }
+
+  const wickLengthValidation = validateWickLength(body.wickLength, false);
+  if (!wickLengthValidation.valid) {
+    errors.push(...wickLengthValidation.errors);
+  } else if (wickLengthValidation.data !== undefined) {
+    result.wickLength = wickLengthValidation.data;
+  }
+
+  const childValidation = validateBoolean(body.hasChild, 'hasChild', false);
+  if (!childValidation.valid) {
+    errors.push(...childValidation.errors);
+  } else if (childValidation.data !== undefined) {
+    result.hasChild = childValidation.data;
+  }
+
+  const petValidation = validateBoolean(body.hasPet, 'hasPet', false);
+  if (!petValidation.valid) {
+    errors.push(...petValidation.errors);
+  } else if (petValidation.data !== undefined) {
+    result.hasPet = petValidation.data;
+  }
+
+  const ventilationValidation = validateBoolean(body.isPoorVentilation, 'isPoorVentilation', false);
+  if (!ventilationValidation.valid) {
+    errors.push(...ventilationValidation.errors);
+  } else if (ventilationValidation.data !== undefined) {
+    result.isPoorVentilation = ventilationValidation.data;
+  }
+
+  const passedValidation = validateBoolean(body.passed, 'passed', false);
+  if (!passedValidation.valid) {
+    errors.push(...passedValidation.errors);
+  } else if (passedValidation.data !== undefined) {
+    result.passed = passedValidation.data;
+  }
+
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== 'string') {
+      errors.push('notes 必须是字符串');
+    } else if (body.notes.length > 500) {
+      errors.push('notes 长度不能超过500个字符');
+    } else {
+      result.notes = body.notes.trim();
+    }
+  }
+
+  if (body.userId !== undefined) {
+    const userIdValidation = validateUserId(body.userId, false);
+    if (!userIdValidation.valid) {
+      errors.push(...userIdValidation.errors);
+    } else if (userIdValidation.data !== undefined) {
+      result.userId = userIdValidation.data;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateBurningEvent(body) {
+  const errors = [];
+  const result = {};
+
+  const eventTypeValidation = validateEventType(body.eventType);
+  if (!eventTypeValidation.valid) {
+    errors.push(...eventTypeValidation.errors);
+  } else {
+    result.eventType = eventTypeValidation.data;
+  }
+
+  if (body.candleId === undefined || body.candleId === null) {
+    errors.push('candleId 为必填项');
+  } else {
+    const candleId = parsePositiveInteger(body.candleId);
+    if (candleId === null || candleId <= 0) {
+      errors.push('candleId 必须是有效的正整数');
+    } else {
+      result.candleId = candleId;
+    }
+  }
+
+  const sceneValidation = validateScene(body.roomCode, false);
+  if (!sceneValidation.valid) {
+    errors.push(...sceneValidation.errors);
+  } else if (sceneValidation.data !== undefined) {
+    result.roomCode = sceneValidation.data;
+  }
+
+  if (body.temperature !== undefined) {
+    const temp = parseNumber(body.temperature);
+    if (temp === null) {
+      errors.push('temperature 必须是有效的数字');
+    } else if (temp < -40 || temp > 60) {
+      errors.push('temperature 必须在合理范围内 (-40 ~ 60°C)');
+    } else {
+      result.temperature = temp;
+    }
+  }
+
+  if (body.humidity !== undefined) {
+    const humidity = parseNumber(body.humidity);
+    if (humidity === null) {
+      errors.push('humidity 必须是有效的数字');
+    } else if (humidity < 0 || humidity > 100) {
+      errors.push('humidity 必须在合理范围内 (0 ~ 100%)');
+    } else {
+      result.humidity = humidity;
+    }
+  }
+
+  if (body.userId !== undefined) {
+    const userIdValidation = validateUserId(body.userId, false);
+    if (!userIdValidation.valid) {
+      errors.push(...userIdValidation.errors);
+    } else if (userIdValidation.data !== undefined) {
+      result.userId = userIdValidation.data;
+    }
+  }
+
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== 'string') {
+      errors.push('notes 必须是字符串');
+    } else if (body.notes.length > 500) {
+      errors.push('notes 长度不能超过500个字符');
+    } else {
+      result.notes = body.notes.trim();
+    }
+  }
+
+  if (body.burnHours !== undefined && body.burnHours !== null) {
+    const hours = parseNumber(body.burnHours);
+    if (hours === null) {
+      errors.push('burnHours 必须是有效的数字');
+    } else if (hours < 0) {
+      errors.push('burnHours 不能为负数');
+    } else if (hours > 72) {
+      errors.push('burnHours 不能超过72小时');
+    } else {
+      result.burnHours = hours;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateRiskAssessmentQuery(query) {
+  const errors = [];
+  const result = {};
+
+  if (query.candleId !== undefined && query.candleId !== null && query.candleId !== '') {
+    const candleId = parseStrictPositiveInteger(query.candleId);
+    if (candleId === null) {
+      errors.push('candleId 必须是有效的正整数');
+    } else {
+      result.candleId = candleId;
+    }
+  }
+
+  const sceneValidation = validateScene(query.roomCode, false);
+  if (!sceneValidation.valid) {
+    errors.push(...sceneValidation.errors);
+  } else if (sceneValidation.data !== undefined) {
+    result.roomCode = sceneValidation.data;
+  }
+
+  if (query.temperature !== undefined && query.temperature !== '') {
+    const temp = parseNumber(query.temperature);
+    if (temp === null) {
+      errors.push('temperature 必须是有效的数字');
+    } else if (temp < -40 || temp > 60) {
+      errors.push('temperature 必须在合理范围内 (-40 ~ 60°C)');
+    } else {
+      result.temperature = temp;
+    }
+  }
+
+  if (query.humidity !== undefined && query.humidity !== '') {
+    const humidity = parseNumber(query.humidity);
+    if (humidity === null) {
+      errors.push('humidity 必须是有效的数字');
+    } else if (humidity < 0 || humidity > 100) {
+      errors.push('humidity 必须在合理范围内 (0 ~ 100%)');
+    } else {
+      result.humidity = humidity;
+    }
+  }
+
+  const childValidation = validateBoolean(query.hasChild, 'hasChild', false);
+  if (!childValidation.valid) {
+    errors.push(...childValidation.errors);
+  } else if (childValidation.data !== undefined) {
+    result.hasChild = childValidation.data;
+  }
+
+  const petValidation = validateBoolean(query.hasPet, 'hasPet', false);
+  if (!petValidation.valid) {
+    errors.push(...petValidation.errors);
+  } else if (petValidation.data !== undefined) {
+    result.hasPet = petValidation.data;
+  }
+
+  const ventilationValidation = validateBoolean(query.isPoorVentilation, 'isPoorVentilation', false);
+  if (!ventilationValidation.valid) {
+    errors.push(...ventilationValidation.errors);
+  } else if (ventilationValidation.data !== undefined) {
+    result.isPoorVentilation = ventilationValidation.data;
+  }
+
+  if (query.combustibleDistance !== undefined && query.combustibleDistance !== '') {
+    const dist = parseNumber(query.combustibleDistance);
+    if (dist === null) {
+      errors.push('combustibleDistance 必须是有效的数字');
+    } else if (dist < 0) {
+      errors.push('combustibleDistance 不能为负数');
+    } else {
+      result.combustibleDistance = dist;
+    }
+  }
+
+  if (query.ventilationDistance !== undefined && query.ventilationDistance !== '') {
+    const dist = parseNumber(query.ventilationDistance);
+    if (dist === null) {
+      errors.push('ventilationDistance 必须是有效的数字');
+    } else if (dist < 0) {
+      errors.push('ventilationDistance 不能为负数');
+    } else {
+      result.ventilationDistance = dist;
+    }
+  }
+
+  if (query.burningHours !== undefined && query.burningHours !== '') {
+    const hours = parseNumber(query.burningHours);
+    if (hours === null) {
+      errors.push('burningHours 必须是有效的数字');
+    } else if (hours < 0) {
+      errors.push('burningHours 不能为负数');
+    } else if (hours > 168) {
+      errors.push('burningHours 不能超过168小时');
+    } else {
+      result.burningHours = hours;
+    }
+  }
+
+  if (query.wickLength !== undefined && query.wickLength !== '') {
+    const length = parseNumber(query.wickLength);
+    if (length === null) {
+      errors.push('wickLength 必须是有效的数字');
+    } else if (length < 0) {
+      errors.push('wickLength 不能为负数');
+    } else {
+      result.wickLength = length;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
 module.exports = {
   parseNumber,
   parseInteger,
@@ -841,5 +1224,13 @@ module.exports = {
   validateStringArray,
   validateSeasonCode,
   validateIntensity,
-  validateWeather
+  validateWeather,
+  validateSafetyInspection,
+  validateBurningEvent,
+  validateRiskAssessmentQuery,
+  validateBoolean,
+  validateEventType,
+  validateInspectionType,
+  validateDistance,
+  validateWickLength
 };

@@ -13,6 +13,9 @@ const {
   validateUserScentPreferences,
   validateRecommendationQuery,
   validateSeasonCode,
+  validateSafetyInspection,
+  validateBurningEvent,
+  validateRiskAssessmentQuery,
   parseStrictPositiveInteger,
   parseNumber
 } = require('../utils/validator');
@@ -21,6 +24,7 @@ const inventoryService = require('../services/inventoryService');
 const tipsService = require('../services/tipsService');
 const userProfileService = require('../services/userProfileService');
 const recommendationService = require('../services/recommendationService');
+const safetyService = require('../services/safetyService');
 
 router.post('/inventory/report', (req, res) => {
   try {
@@ -958,6 +962,398 @@ router.get('/scent/purchase-suggestions', (req, res) => {
       status: 'success',
       purchaseSuggestions
     }, '采购建议生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/safety/inspection', (req, res) => {
+  try {
+    const validation = validateSafetyInspection(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const result = safetyService.submitSafetyInspection(userId, validation.data);
+
+    res.json(success(result, '安全检查记录提交成功'));
+  } catch (err) {
+    res.json(error(400, err.message));
+  }
+});
+
+router.get('/safety/inspections', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { candleId, roomCode, inspectionType } = req.query;
+
+    const filters = { userId };
+    if (candleId) {
+      const parsedId = parseStrictPositiveInteger(candleId);
+      if (parsedId === null) {
+        return res.json(error(400, 'candleId 必须是有效的正整数'));
+      }
+      filters.candleId = parsedId;
+    }
+    if (roomCode) filters.roomCode = roomCode;
+    if (inspectionType) filters.inspectionType = inspectionType;
+
+    const records = storage.getSafetyInspectionRecords(filters);
+
+    res.json(success({
+      userId,
+      records,
+      count: records.length
+    }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/safety/burning-event', (req, res) => {
+  try {
+    const validation = validateBurningEvent(req.body);
+    if (!validation.valid) {
+      return res.json(error(400, '参数校验失败', validation.errors));
+    }
+
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+
+    const candle = storage.getCandleById(validation.data.candleId);
+    if (!candle) {
+      return res.json(error(404, '未找到对应的蜡烛信息'));
+    }
+
+    const result = safetyService.reportBurningEvent(userId, validation.data);
+
+    const eventTypeText = validation.data.eventType === 'ignite' ? '点燃' :
+      validation.data.eventType === 'extinguish' ? '熄灭' : '检查';
+
+    res.json(success(result, `${eventTypeText}事件上报成功`));
+  } catch (err) {
+    res.json(error(400, err.message));
+  }
+});
+
+router.get('/safety/burning-events', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { candleId, eventType, roomCode } = req.query;
+
+    const filters = { userId };
+    if (candleId) {
+      const parsedId = parseStrictPositiveInteger(candleId);
+      if (parsedId === null) {
+        return res.json(error(400, 'candleId 必须是有效的正整数'));
+      }
+      filters.candleId = parsedId;
+    }
+    if (eventType) filters.eventType = eventType;
+    if (roomCode) filters.roomCode = roomCode;
+
+    const events = storage.getBurningEvents(filters);
+
+    res.json(success({
+      userId,
+      events,
+      count: events.length
+    }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/profile', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const profile = safetyService.generateUserSafetyProfile(userId);
+
+    res.json(success(profile,
+      profile.profileStatus === 'complete' ? '用户安全画像查询成功' : profile.message));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/risk-assessment', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+
+    const queryValidation = validateRiskAssessmentQuery(req.query);
+    if (!queryValidation.valid) {
+      return res.json(error(400, '参数校验失败', queryValidation.errors));
+    }
+
+    const { candleId, roomCode } = queryValidation.data;
+
+    let activeSession = null;
+    let actualCandleId = candleId;
+
+    if (!candleId) {
+      const igniteEvents = storage.getBurningEvents({ userId, eventType: 'ignite' });
+      const candleIds = [...new Set(igniteEvents.map(e => e.candleId))];
+      for (const cid of candleIds) {
+        const session = storage.getActiveBurningSession(userId, cid);
+        if (session && session.isActive) {
+          activeSession = session;
+          actualCandleId = cid;
+          break;
+        }
+      }
+    } else {
+      activeSession = storage.getActiveBurningSession(userId, candleId);
+    }
+
+    const environment = { ...queryValidation.data };
+
+    const roomEnv = roomCode ? storage.getRoomEnvironment(userId, roomCode) : null;
+    if (roomEnv) {
+      if (environment.temperature === undefined) environment.temperature = roomEnv.temperature;
+      if (environment.humidity === undefined) environment.humidity = roomEnv.humidity;
+      if (environment.hasChild === undefined) environment.hasChild = roomEnv.hasChild;
+      if (environment.hasPet === undefined) environment.hasPet = roomEnv.hasPet;
+      if (environment.combustibleDistance === undefined) environment.combustibleDistance = roomEnv.combustibleDistance;
+      if (environment.ventilationDistance === undefined) environment.ventilationDistance = roomEnv.ventilationDistance;
+      if (environment.isPoorVentilation === undefined) environment.isPoorVentilation = roomEnv.isPoorVentilation;
+    }
+
+    const assessment = safetyService.assessBurningRisk(userId, actualCandleId, environment);
+
+    res.json(success({
+      userId,
+      candleId: actualCandleId,
+      activeSession,
+      riskAssessment: assessment
+    }, '燃烧风险评估完成'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/room-alert/:roomCode', (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    if (typeof roomCode !== 'string' || roomCode.trim() === '') {
+      return res.json(error(400, 'roomCode 必须是非空字符串'));
+    }
+
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+
+    const alert = safetyService.generateRoomSafetyAlert(userId, roomCode.trim());
+
+    res.json(success(alert, '房间安全告警生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/suggestions', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+
+    const queryValidation = validateRiskAssessmentQuery(req.query);
+    if (!queryValidation.valid) {
+      return res.json(error(400, '参数校验失败', queryValidation.errors));
+    }
+
+    const { candleId, roomCode, temperature, humidity, hasChild, hasPet } = queryValidation.data;
+
+    const assessment = safetyService.assessBurningRisk(userId, candleId, {
+      roomCode,
+      temperature,
+      humidity,
+      hasChild,
+      hasPet
+    });
+
+    res.json(success({
+      userId,
+      riskScore: assessment.riskScore,
+      riskLevel: assessment.riskLevel,
+      riskLevelName: assessment.riskLevelName,
+      shouldContinueBurning: assessment.shouldContinueBurning,
+      recommendation: assessment.recommendation,
+      riskReasons: assessment.riskReasons,
+      correctiveActions: assessment.correctiveActions,
+      safetyTips: assessment.safetyTips,
+      specialAlerts: assessment.specialAlerts
+    }, '安全使用建议生成成功'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/alerts', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { roomCode, alertType, acknowledged } = req.query;
+
+    const filters = { userId };
+    if (roomCode) filters.roomCode = roomCode;
+    if (alertType) filters.alertType = alertType;
+    if (acknowledged !== undefined && acknowledged !== '') {
+      filters.acknowledged = acknowledged === 'true';
+    }
+
+    const alerts = storage.getSafetyAlerts(filters);
+
+    res.json(success({
+      userId,
+      alerts,
+      count: alerts.length,
+      unacknowledgedCount: alerts.filter(a => !a.acknowledged).length
+    }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.post('/safety/alert/:alertId/acknowledge', (req, res) => {
+  try {
+    const { alertId } = req.params;
+    const parsedAlertId = parseStrictPositiveInteger(alertId);
+    if (parsedAlertId === null) {
+      return res.json(error(400, 'alertId 必须是有效的正整数'));
+    }
+
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+
+    const alert = storage.acknowledgeSafetyAlert(parsedAlertId, userId);
+    if (!alert) {
+      return res.json(error(404, '未找到对应的安全告警'));
+    }
+
+    res.json(success({ userId, alert }, '告警已确认'));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/rules', (req, res) => {
+  try {
+    const rules = storage.getSafetyRules();
+    res.json(success({ rules, count: rules.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/risk-levels', (req, res) => {
+  try {
+    const levels = storage.getSafetyRiskLevels();
+    res.json(success({ levels, count: levels.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/factors', (req, res) => {
+  try {
+    const factors = storage.getSafetyFactors();
+    res.json(success({ factors, count: factors.length }));
+  } catch (err) {
+    res.json(error(500, '服务器错误', err.message));
+  }
+});
+
+router.get('/safety/active-session', (req, res) => {
+  try {
+    const userIdValidation = validateUserId(req.query.userId, true);
+    if (!userIdValidation.valid) {
+      return res.json(error(400, '参数校验失败', userIdValidation.errors));
+    }
+
+    const userId = userIdValidation.data;
+    const { candleId } = req.query;
+
+    let activeSessions = [];
+
+    if (candleId) {
+      const parsedId = parseStrictPositiveInteger(candleId);
+      if (parsedId === null) {
+        return res.json(error(400, 'candleId 必须是有效的正整数'));
+      }
+      const session = storage.getActiveBurningSession(userId, parsedId);
+      if (session) activeSessions.push(session);
+    } else {
+      const igniteEvents = storage.getBurningEvents({ userId, eventType: 'ignite' });
+      const candleIds = [...new Set(igniteEvents.map(e => e.candleId))];
+      for (const cid of candleIds) {
+        const session = storage.getActiveBurningSession(userId, cid);
+        if (session && session.isActive) {
+          activeSessions.push(session);
+        }
+      }
+    }
+
+    const enrichedSessions = activeSessions.map(session => {
+      const candle = storage.getCandleById(session.candleId);
+      const assessment = safetyService.assessBurningRisk(userId, session.candleId, {
+        roomCode: session.roomCode
+      });
+      return {
+        ...session,
+        candle,
+        riskAssessment: assessment
+      };
+    });
+
+    res.json(success({
+      userId,
+      activeSessions: enrichedSessions,
+      count: enrichedSessions.length
+    }));
   } catch (err) {
     res.json(error(500, '服务器错误', err.message));
   }

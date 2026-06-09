@@ -35,6 +35,14 @@ class MemoryStorage {
     this.sceneFragranceMapping = [];
     this.moodFragranceMapping = [];
     this.seasonFragranceMapping = [];
+    this.safetyRules = [];
+    this.safetyRiskLevels = [];
+    this.safetyFactors = [];
+    this.roomEnvironments = new Map();
+    this.safetyInspectionRecords = [];
+    this.burningEvents = [];
+    this.userSafetyProfiles = new Map();
+    this.safetyAlerts = [];
     this._initDefaultData();
   }
 
@@ -207,6 +215,58 @@ class MemoryStorage {
       { season: 'winter', category: 'woody', weight: 0.4, reason: '木质调驱寒温暖' },
       { season: 'winter', category: 'oriental', weight: 0.3, reason: '东方调浓郁暖心' },
       { season: 'winter', category: 'gourmand', weight: 0.3, reason: '美食调甜蜜温暖' }
+    ];
+
+    this.safetyRiskLevels = [
+      { id: 1, level: 'safe', name: '安全', minScore: 0, maxScore: 20, color: 'green', description: '燃烧环境安全，可正常使用' },
+      { id: 2, level: 'caution', name: '注意', minScore: 21, maxScore: 40, color: 'yellow', description: '存在轻微风险因素，建议关注' },
+      { id: 3, level: 'warning', name: '警告', minScore: 41, maxScore: 60, color: 'orange', description: '存在明显风险，需采取措施' },
+      { id: 4, level: 'danger', name: '危险', minScore: 61, maxScore: 80, color: 'red', description: '风险较高，建议立即熄灭' },
+      { id: 5, level: 'critical', name: '极度危险', minScore: 81, maxScore: 100, color: 'darkred', description: '极度危险，必须立即熄灭并整改' }
+    ];
+
+    this.safetyRules = [
+      { id: 1, code: 'max_continuous_burn', name: '最大连续燃烧时长', value: 4, unit: 'hours', riskScore: 15, description: '单次连续燃烧不超过4小时' },
+      { id: 2, code: 'min_ventilation_distance', name: '最小通风距离', value: 30, unit: 'cm', riskScore: 10, description: '蜡烛与墙壁/家具距离至少30cm' },
+      { id: 3, code: 'min_combustible_distance', name: '最小可燃物距离', value: 50, unit: 'cm', riskScore: 25, description: '蜡烛与可燃物距离至少50cm' },
+      { id: 4, code: 'max_humidity_low', name: '最低湿度阈值', value: 30, unit: '%', riskScore: 10, description: '湿度过低（<30%）增加火灾风险' },
+      { id: 5, code: 'max_temperature_high', name: '最高温度阈值', value: 30, unit: '°C', riskScore: 10, description: '温度过高（>30°C）增加火灾风险' },
+      { id: 6, code: 'child_presence', name: '儿童在场', value: true, unit: 'boolean', riskScore: 30, description: '儿童在场时需特别注意安全' },
+      { id: 7, code: 'pet_presence', name: '宠物在场', value: true, unit: 'boolean', riskScore: 20, description: '宠物在场时需特别注意安全' },
+      { id: 8, code: 'poor_ventilation', name: '通风不良', value: true, unit: 'boolean', riskScore: 20, description: '密闭空间燃烧增加一氧化碳风险' },
+      { id: 9, code: 'night_burning', name: '夜间燃烧', value: true, unit: 'boolean', riskScore: 25, description: '睡眠时段燃烧无人看管风险高' },
+      { id: 10, code: 'wick_too_long', name: '烛芯过长', value: 10, unit: 'mm', riskScore: 15, description: '烛芯超过10mm需修剪' }
+    ];
+
+    this.safetyFactors = [
+      { id: 1, code: 'wax_type', name: '蜡基类型', type: 'candle_property', options: [
+        { value: 'soy', riskMultiplier: 1.0, description: '大豆蜡，燃烧较稳定' },
+        { value: 'paraffin', riskMultiplier: 1.2, description: '石蜡，燃烧温度较高' },
+        { value: 'beeswax', riskMultiplier: 0.9, description: '蜂蜡，燃烧最稳定' },
+        { value: 'coconut', riskMultiplier: 1.1, description: '椰子蜡，燃烧温度中等' },
+        { value: 'palm', riskMultiplier: 1.15, description: '棕榈蜡，燃烧温度较高' }
+      ]},
+      { id: 2, code: 'wick_size', name: '烛芯规格', type: 'candle_property', options: [
+        { value: 'small', riskMultiplier: 0.8, description: '小烛芯，火焰小风险低' },
+        { value: 'medium', riskMultiplier: 1.0, description: '中烛芯，标准风险' },
+        { value: 'large', riskMultiplier: 1.3, description: '大烛芯，火焰大风险高' },
+        { value: 'extra_large', riskMultiplier: 1.5, description: '超大烛芯，高风险' }
+      ]},
+      { id: 3, code: 'room_type', name: '房间类型', type: 'environment', options: [
+        { value: 'living_room', riskMultiplier: 1.0, description: '客厅，通常有人看管' },
+        { value: 'bedroom', riskMultiplier: 1.4, description: '卧室，睡眠时风险高' },
+        { value: 'study', riskMultiplier: 0.9, description: '书房，通常有人看管' },
+        { value: 'bathroom', riskMultiplier: 1.2, description: '浴室，湿度高但空间小' },
+        { value: 'kitchen', riskMultiplier: 1.5, description: '厨房，可燃物多' },
+        { value: 'dining_room', riskMultiplier: 1.1, description: '餐厅，用餐时段使用' },
+        { value: 'entrance', riskMultiplier: 1.3, description: '玄关，无人看管时间长' }
+      ]},
+      { id: 4, code: 'time_period', name: '使用时段', type: 'temporal', options: [
+        { value: 'morning', riskMultiplier: 0.8, description: '早晨(6-12)，清醒状态' },
+        { value: 'afternoon', riskMultiplier: 0.9, description: '下午(12-18)，清醒状态' },
+        { value: 'evening', riskMultiplier: 1.1, description: '傍晚(18-22)，可能疲倦' },
+        { value: 'night', riskMultiplier: 1.8, description: '深夜(22-6)，睡眠风险高' }
+      ]}
     ];
   }
 
@@ -735,6 +795,198 @@ class MemoryStorage {
         return candle ? { ...item, candle } : null;
       })
       .filter(Boolean);
+  }
+
+  getSafetyRules() {
+    return [...this.safetyRules];
+  }
+
+  getSafetyRuleByCode(code) {
+    return this.safetyRules.find(r => r.code === code) || null;
+  }
+
+  getSafetyRiskLevels() {
+    return [...this.safetyRiskLevels];
+  }
+
+  getSafetyRiskLevelByScore(score) {
+    return this.safetyRiskLevels.find(l => score >= l.minScore && score <= l.maxScore) || this.safetyRiskLevels[0];
+  }
+
+  getSafetyFactors() {
+    return [...this.safetyFactors];
+  }
+
+  getSafetyFactorByCode(code) {
+    return this.safetyFactors.find(f => f.code === code) || null;
+  }
+
+  saveRoomEnvironment(userId, roomCode, environment) {
+    const uid = normalizeUserId(userId);
+    const key = `${uid}:${roomCode}`;
+    const existing = this.roomEnvironments.get(key) || {};
+    const merged = {
+      ...existing,
+      ...environment,
+      userId: uid,
+      roomCode,
+      lastUpdated: Date.now()
+    };
+    this.roomEnvironments.set(key, merged);
+    return merged;
+  }
+
+  getRoomEnvironment(userId, roomCode) {
+    const uid = normalizeUserId(userId);
+    const key = `${uid}:${roomCode}`;
+    return this.roomEnvironments.get(key) || null;
+  }
+
+  getAllRoomEnvironments(userId) {
+    const uid = normalizeUserId(userId);
+    return Array.from(this.roomEnvironments.entries())
+      .filter(([key]) => key.startsWith(`${uid}:`))
+      .map(([, env]) => env);
+  }
+
+  addBurningEvent(event, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const newEvent = {
+      ...event,
+      id: this.burningEvents.length + 1,
+      userId: uid,
+      timestamp: Date.now()
+    };
+    this.burningEvents.push(newEvent);
+    return newEvent;
+  }
+
+  getBurningEvents(filters = {}) {
+    const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
+    let events = this.burningEvents.filter(e => e && e.userId === uid);
+    if (filters.candleId) {
+      events = events.filter(e => e && e.candleId === filters.candleId);
+    }
+    if (filters.eventType) {
+      events = events.filter(e => e && e.eventType === filters.eventType);
+    }
+    if (filters.roomCode) {
+      events = events.filter(e => e && e.roomCode === filters.roomCode);
+    }
+    return events.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  getActiveBurningSession(userId, candleId) {
+    const uid = normalizeUserId(userId);
+    const igniteEvents = this.burningEvents.filter(e =>
+      e && e.userId === uid && e.candleId === candleId && e.eventType === 'ignite'
+    );
+    const extinguishEvents = this.burningEvents.filter(e =>
+      e && e.userId === uid && e.candleId === candleId && e.eventType === 'extinguish'
+    );
+
+    if (igniteEvents.length === 0) return null;
+
+    const lastIgnite = igniteEvents.sort((a, b) => b.timestamp - a.timestamp)[0];
+    const lastExtinguish = extinguishEvents.length > 0
+      ? extinguishEvents.sort((a, b) => b.timestamp - a.timestamp)[0]
+      : null;
+
+    if (!lastExtinguish || lastExtinguish.timestamp < lastIgnite.timestamp) {
+      const currentDuration = (Date.now() - lastIgnite.timestamp) / (1000 * 60 * 60);
+      return {
+        candleId,
+        igniteTime: lastIgnite.timestamp,
+        currentDurationHours: Number(currentDuration.toFixed(2)),
+        roomCode: lastIgnite.roomCode || null,
+        isActive: true
+      };
+    }
+
+    return null;
+  }
+
+  addSafetyInspectionRecord(record, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const newRecord = {
+      ...record,
+      id: this.safetyInspectionRecords.length + 1,
+      userId: uid,
+      timestamp: Date.now()
+    };
+    this.safetyInspectionRecords.push(newRecord);
+    return newRecord;
+  }
+
+  getSafetyInspectionRecords(filters = {}) {
+    const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
+    let records = this.safetyInspectionRecords.filter(r => r && r.userId === uid);
+    if (filters.candleId) {
+      records = records.filter(r => r && r.candleId === filters.candleId);
+    }
+    if (filters.roomCode) {
+      records = records.filter(r => r && r.roomCode === filters.roomCode);
+    }
+    if (filters.inspectionType) {
+      records = records.filter(r => r && r.inspectionType === filters.inspectionType);
+    }
+    return records.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  saveUserSafetyProfile(userId, profile) {
+    const uid = normalizeUserId(userId);
+    const existing = this.userSafetyProfiles.get(uid) || {};
+    const merged = {
+      ...existing,
+      ...profile,
+      userId: uid,
+      lastUpdated: Date.now()
+    };
+    this.userSafetyProfiles.set(uid, merged);
+    return merged;
+  }
+
+  getUserSafetyProfile(userId) {
+    const uid = normalizeUserId(userId);
+    return this.userSafetyProfiles.get(uid) || null;
+  }
+
+  addSafetyAlert(alert, userId) {
+    const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
+    const newAlert = {
+      ...alert,
+      id: this.safetyAlerts.length + 1,
+      userId: uid,
+      timestamp: Date.now(),
+      acknowledged: false
+    };
+    this.safetyAlerts.push(newAlert);
+    return newAlert;
+  }
+
+  getSafetyAlerts(filters = {}) {
+    const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
+    let alerts = this.safetyAlerts.filter(a => a && a.userId === uid);
+    if (filters.roomCode) {
+      alerts = alerts.filter(a => a && a.roomCode === filters.roomCode);
+    }
+    if (filters.alertType) {
+      alerts = alerts.filter(a => a && a.alertType === filters.alertType);
+    }
+    if (filters.acknowledged !== undefined) {
+      alerts = alerts.filter(a => a && a.acknowledged === filters.acknowledged);
+    }
+    return alerts.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  acknowledgeSafetyAlert(alertId, userId) {
+    const uid = normalizeUserId(userId);
+    const alert = this.safetyAlerts.find(a => a.id === alertId && a.userId === uid);
+    if (alert) {
+      alert.acknowledged = true;
+      alert.acknowledgedAt = Date.now();
+    }
+    return alert;
   }
 }
 
