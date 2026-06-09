@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const tipsService = require('../services/tipsService');
 const { success, error } = require('../utils/response');
-const { validateUserId, validatePositiveInteger, parsePositiveInteger } = require('../utils/validator');
+const { validateUserId, parseStrictPositiveInteger } = require('../utils/validator');
 
 router.get('/personalized/:candleId', (req, res) => {
   try {
@@ -13,9 +13,9 @@ router.get('/personalized/:candleId', (req, res) => {
     }
 
     const userId = userIdValidation.data;
-    const parsedCandleId = parsePositiveInteger(candleId);
+    const parsedCandleId = parseStrictPositiveInteger(candleId);
     if (parsedCandleId === null) {
-      return res.json(error(400, 'candleId 必须是有效的正整数'));
+      return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
     }
 
     const result = tipsService.getPersonalizedTips(parsedCandleId, userId);

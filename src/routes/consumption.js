@@ -3,7 +3,7 @@ const router = express.Router();
 const { storage } = require('../storage/memoryStorage');
 const consumptionService = require('../services/consumptionService');
 const { success, error } = require('../utils/response');
-const { validateUserId, validatePositiveInteger, parsePositiveInteger } = require('../utils/validator');
+const { validateUserId, parseStrictPositiveInteger } = require('../utils/validator');
 
 router.post('/model/:candleId', (req, res) => {
   try {
@@ -14,9 +14,9 @@ router.post('/model/:candleId', (req, res) => {
     }
 
     const userId = userIdValidation.data;
-    const parsedCandleId = parsePositiveInteger(candleId);
+    const parsedCandleId = parseStrictPositiveInteger(candleId);
     if (parsedCandleId === null) {
-      return res.json(error(400, 'candleId 必须是有效的正整数'));
+      return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
     }
 
     const candle = storage.getCandleById(parsedCandleId);
@@ -52,9 +52,9 @@ router.get('/model/:candleId', (req, res) => {
     }
 
     const userId = userIdValidation.data;
-    const parsedCandleId = parsePositiveInteger(candleId);
+    const parsedCandleId = parseStrictPositiveInteger(candleId);
     if (parsedCandleId === null) {
-      return res.json(error(400, 'candleId 必须是有效的正整数'));
+      return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
     }
 
     const model = storage.getConsumptionModel(parsedCandleId, userId);

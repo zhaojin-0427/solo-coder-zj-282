@@ -23,6 +23,12 @@ function parsePositiveInteger(value) {
   return num;
 }
 
+function parseStrictPositiveInteger(value) {
+  const num = parseInteger(value);
+  if (num === null || num <= 0) return null;
+  return num;
+}
+
 function parsePositiveNumber(value) {
   const num = parseNumber(value);
   if (num === null || num < 0) return null;
@@ -35,6 +41,10 @@ function isValidNumber(value) {
 
 function isValidPositiveInteger(value) {
   return parsePositiveInteger(value) !== null;
+}
+
+function isValidStrictPositiveInteger(value) {
+  return parseStrictPositiveInteger(value) !== null;
 }
 
 function isValidPositiveNumber(value) {
@@ -314,18 +324,46 @@ function validateReplenishmentList(body) {
   };
 }
 
+function validateUserIdConflict(queryUserId, bodyUserId) {
+  const queryHas = queryUserId !== undefined && queryUserId !== null && queryUserId !== '';
+  const bodyHas = bodyUserId !== undefined && bodyUserId !== null;
+
+  if (!queryHas && !bodyHas) {
+    return { valid: false, errors: ['userId 为必填项'], data: null };
+  }
+
+  if (queryHas && bodyHas) {
+    const queryTrimmed = String(queryUserId).trim();
+    const bodyTrimmed = typeof bodyUserId === 'string' ? bodyUserId.trim() : String(bodyUserId);
+
+    if (queryTrimmed !== bodyTrimmed) {
+      return {
+        valid: false,
+        errors: [`query 中的 userId (${queryTrimmed}) 与 body 中的 userId (${bodyTrimmed}) 不一致，请只传一个`],
+        data: null
+      };
+    }
+  }
+
+  const userId = queryHas ? queryUserId : bodyUserId;
+  return validateUserId(userId, true);
+}
+
 module.exports = {
   parseNumber,
   parseInteger,
   parsePositiveInteger,
+  parseStrictPositiveInteger,
   parsePositiveNumber,
   isValidNumber,
   isValidPositiveInteger,
+  isValidStrictPositiveInteger,
   isValidPositiveNumber,
   normalizeCapacity,
   normalizeQuantity,
   isValidUserId,
   validateUserId,
+  validateUserIdConflict,
   validatePredictionDays,
   validateScene,
   validateBurningRecord,

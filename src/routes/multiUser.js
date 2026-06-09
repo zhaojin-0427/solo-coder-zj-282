@@ -6,9 +6,10 @@ const {
   validateInventoryReport,
   validateBurningRecord,
   validateUserId,
+  validateUserIdConflict,
   validatePredictionDays,
   validateReplenishmentList,
-  parsePositiveInteger
+  parseStrictPositiveInteger
 } = require('../utils/validator');
 const consumptionService = require('../services/consumptionService');
 const inventoryService = require('../services/inventoryService');
@@ -22,7 +23,7 @@ router.post('/inventory/report', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserId(req.body.userId || req.query.userId, true);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -104,7 +105,7 @@ router.post('/burning/record', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserId(req.body.userId || req.query.userId, true);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -160,10 +161,10 @@ router.get('/burning/records', (req, res) => {
 
     const filters = { userId };
     if (brand) filters.brand = brand;
-    if (candleId) {
-      const parsedId = parsePositiveInteger(candleId);
+    if (candleId !== undefined && candleId !== '') {
+      const parsedId = parseStrictPositiveInteger(candleId);
       if (parsedId === null) {
-        return res.json(error(400, 'candleId 必须是有效的正整数'));
+        return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
       }
       filters.candleId = parsedId;
     }
@@ -179,15 +180,15 @@ router.get('/burning/records', (req, res) => {
 router.post('/consumption/model/:candleId', (req, res) => {
   try {
     const { candleId } = req.params;
-    const userIdValidation = validateUserId(req.query.userId || req.body.userId, true);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
 
     const userId = userIdValidation.data;
-    const parsedCandleId = parsePositiveInteger(candleId);
+    const parsedCandleId = parseStrictPositiveInteger(candleId);
     if (parsedCandleId === null) {
-      return res.json(error(400, 'candleId 必须是有效的正整数'));
+      return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
     }
 
     const candle = storage.getCandleById(parsedCandleId);
@@ -217,9 +218,9 @@ router.get('/consumption/model/:candleId', (req, res) => {
     }
 
     const userId = userIdValidation.data;
-    const parsedCandleId = parsePositiveInteger(candleId);
+    const parsedCandleId = parseStrictPositiveInteger(candleId);
     if (parsedCandleId === null) {
-      return res.json(error(400, 'candleId 必须是有效的正整数'));
+      return res.json(error(400, 'candleId 必须是有效的正整数（≥1）'));
     }
 
     const model = storage.getConsumptionModel(parsedCandleId, userId);
