@@ -456,11 +456,13 @@ function generateUsageSuggestion(recommendations, roomSize) {
   }
 
   const primary = recommendations[0];
+  const hasStock = primary.inStock && primary.stockQuantity > 0;
+
   const suggestion = {
     primaryCandle: {
       candle: primary.candle,
       usage: `作为主香调使用，适合${roomSize ? roomSize + '平米' : '常规'}空间`,
-      priority: '优先使用库存'
+      priority: hasStock ? '优先使用库存' : '建议采购后使用'
     },
     recommendedCandleCount: candleCount,
     layeringTip: null,
@@ -472,8 +474,10 @@ function generateUsageSuggestion(recommendations, roomSize) {
     suggestion.layeringTip = `可与${secondary.candle.brand} ${secondary.candle.name}叠香使用，营造层次感`;
   }
 
-  if (primary.inStock && primary.stockQuantity > 1) {
+  if (hasStock && primary.stockQuantity > 1) {
     suggestion.primaryCandle.usage += `，当前库存${primary.stockQuantity}个，可安心使用`;
+  } else if (!hasStock) {
+    suggestion.primaryCandle.usage += '，当前库存不足，建议先采购';
   }
 
   return suggestion;
@@ -652,6 +656,19 @@ function generatePurchaseSuggestions(userId, currentInventory, preferences, rati
   const prefs = preferences || storage.getUserScentPreferences(uid);
   const userRatings = ratings || storage.getUserRatings({ userId: uid });
 
+  const allergyTags = prefs?.allergyTags || [];
+  const excludeTags = prefs?.excludeTags || [];
+
+  const hasAllergyConflict = (candle) => {
+    if (!candle.scentTags || allergyTags.length === 0) return false;
+    return candle.scentTags.some(tag => allergyTags.includes(tag));
+  };
+
+  const hasExcludeConflict = (candle) => {
+    if (!candle.scentTags || excludeTags.length === 0) return false;
+    return candle.scentTags.some(tag => excludeTags.includes(tag));
+  };
+
   const categoryScores = calculateCategoryPreferenceScores(uid, prefs, userRatings);
   const allCandles = storage.getAllCandles();
   const inventoryBrands = new Set(currentInventory.map(i => `${i.candle.brand}-${i.candle.capacity}`));
@@ -667,14 +684,14 @@ function generatePurchaseSuggestions(userId, currentInventory, preferences, rati
     if (!hasInInventory) {
       const category = storage.getFragranceCategoryByCode(code);
       const candles = storage.getCandlesByFragranceCategory(code);
-      if (candles.length > 0) {
-        const topCandle = candles[0];
+      const filteredCandles = candles.filter(c => !hasAllergyConflict(c) && !hasExcludeConflict(c));
+      if (filteredCandles.length > 0) {
         missingCategories.push({
           category: code,
           categoryName: category?.name || code,
           preferenceScore: score,
           reason: `该香调偏好评分${score}分，但库存中暂无，建议采购`,
-          recommendedCandles: candles.slice(0, 3).map(c => ({
+          recommendedCandles: filteredCandles.slice(0, 3).map(c => ({
             id: c.id,
             brand: c.brand,
             name: c.name,
@@ -704,6 +721,8 @@ function generatePurchaseSuggestions(userId, currentInventory, preferences, rati
       moodMapping.forEach(m => {
         const candles = storage.getCandlesByFragranceCategory(m.category);
         candles.forEach(candle => {
+          if (hasAllergyConflict(candle) || hasExcludeConflict(candle)) return;
+          
           const key = `${candle.brand}-${candle.capacity}`;
           if (!inventoryBrands.has(key) && categoryScores[m.category] >= 25) {
             const exists = complementaryItems.find(c => c.candle.id === candle.id);

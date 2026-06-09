@@ -29,7 +29,7 @@ router.post('/inventory/report', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -111,7 +111,7 @@ router.post('/burning/record', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -186,7 +186,7 @@ router.get('/burning/records', (req, res) => {
 router.post('/consumption/model/:candleId', (req, res) => {
   try {
     const { candleId } = req.params;
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -211,6 +211,7 @@ router.post('/consumption/model/:candleId', (req, res) => {
 
     res.json(success({ userId, model }, '消耗模型建立成功'));
   } catch (err) {
+    console.error('Consumption model error:', err.stack);
     res.json(error(500, '服务器错误', err.message));
   }
 });
@@ -337,7 +338,7 @@ router.post('/scent/rating', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -435,7 +436,7 @@ router.post('/scent/preferences', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }
@@ -697,7 +698,7 @@ router.post('/scent/recommendations', (req, res) => {
       return res.json(error(400, '参数校验失败', validation.errors));
     }
 
-    const userIdValidation = validateUserIdConflict(req.query.userId, req.body.userId);
+    const userIdValidation = validateUserIdConflict(req.query.userId, req.body?.userId);
     if (!userIdValidation.valid) {
       return res.json(error(400, '参数校验失败', userIdValidation.errors));
     }

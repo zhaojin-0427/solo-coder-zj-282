@@ -60,8 +60,10 @@ function buildConsumptionModel(candleId, records, userId) {
   const candle = storage.getCandleById(candleId);
   if (!candle) return null;
 
+  if (!records || records.length === 0) return null;
+
   const actualRate = calculateActualBurnRate(records);
-  const defaultRecords = records.filter(r => r.temperature && r.humidity);
+  const defaultRecords = records.filter(r => r.temperature !== undefined && r.humidity !== undefined);
   const avgTemp = defaultRecords.length > 0
     ? defaultRecords.reduce((sum, r) => sum + r.temperature, 0) / defaultRecords.length
     : 22;

@@ -221,15 +221,15 @@ class MemoryStorage {
 
   getBurningRecords(filters = {}) {
     const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
-    let records = this.burningRecords.filter(r => r.userId === uid);
+    let records = this.burningRecords.filter(r => r && r.userId === uid);
     if (filters.brand) {
-      records = records.filter(r => r.brand === filters.brand);
+      records = records.filter(r => r && r.brand === filters.brand);
     }
     if (filters.candleId) {
-      records = records.filter(r => r.candleId === filters.candleId);
+      records = records.filter(r => r && r.candleId === filters.candleId);
     }
     if (filters.scene) {
-      records = records.filter(r => r.scene === filters.scene);
+      records = records.filter(r => r && r.scene === filters.scene);
     }
     return records;
   }
@@ -300,12 +300,12 @@ class MemoryStorage {
 
   getInventory(filters = {}) {
     const uid = filters.userId ? normalizeUserId(filters.userId) : DEFAULT_USER_ID;
-    let items = this.inventory.filter(i => i.userId === uid);
+    let items = this.inventory.filter(i => i && i.userId === uid);
     if (filters.brand) {
-      items = items.filter(i => i.brand === filters.brand);
+      items = items.filter(i => i && i.brand === filters.brand);
     }
     if (filters.scene) {
-      items = items.filter(i => i.scene === filters.scene);
+      items = items.filter(i => i && i.scene === filters.scene);
     }
     return items;
   }
@@ -631,16 +631,16 @@ class MemoryStorage {
     const uid = filters.userId ? normalizeUserId(filters.userId) : null;
     let ratings = [...this.userRatings];
     if (uid) {
-      ratings = ratings.filter(r => r.userId === uid);
+      ratings = ratings.filter(r => r && r.userId === uid);
     }
     if (filters.candleId) {
-      ratings = ratings.filter(r => r.candleId === filters.candleId);
+      ratings = ratings.filter(r => r && r.candleId === filters.candleId);
     }
     if (filters.brand) {
-      ratings = ratings.filter(r => r.brand === filters.brand);
+      ratings = ratings.filter(r => r && r.brand === filters.brand);
     }
-    if (filters.minRating) {
-      ratings = ratings.filter(r => r.rating >= filters.minRating);
+    if (filters.minRating !== undefined) {
+      ratings = ratings.filter(r => r && r.rating >= filters.minRating);
     }
     return ratings.sort((a, b) => b.timestamp - a.timestamp);
   }
