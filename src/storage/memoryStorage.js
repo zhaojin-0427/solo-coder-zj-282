@@ -906,6 +906,51 @@ class MemoryStorage {
     return null;
   }
 
+  getActiveBurningSessionsByRoom(userId, roomCode) {
+    const uid = normalizeUserId(userId);
+    const igniteEvents = this.burningEvents.filter(e =>
+      e && e.userId === uid && e.roomCode === roomCode && e.eventType === 'ignite'
+    );
+    if (igniteEvents.length === 0) return [];
+
+    const activeSessions = [];
+    const candleIds = [...new Set(igniteEvents.map(e => e.candleId))];
+
+    for (const cid of candleIds) {
+      const candleIgnites = igniteEvents.filter(e => e.candleId === cid);
+      const candleExtinguishes = this.burningEvents.filter(e =>
+        e && e.userId === uid && e.candleId === cid && e.eventType === 'extinguish' && e.roomCode === roomCode
+      );
+
+      const lastIgnite = candleIgnites.sort((a, b) => b.timestamp - a.timestamp)[0];
+      const lastExtinguish = candleExtinguishes.length > 0
+        ? candleExtinguishes.sort((a, b) => b.timestamp - a.timestamp)[0]
+        : null;
+
+      if (!lastExtinguish || lastExtinguish.timestamp < lastIgnite.timestamp) {
+        const currentDuration = (Date.now() - lastIgnite.timestamp) / (1000 * 60 * 60);
+        const candle = this.getCandleById(cid);
+        activeSessions.push({
+          candleId: cid,
+          candle: candle ? {
+            id: candle.id,
+            brand: candle.brand,
+            name: candle.name,
+            waxType: candle.waxType,
+            wickSize: candle.wickSize,
+            capacity: candle.capacity
+          } : null,
+          igniteTime: lastIgnite.timestamp,
+          currentDurationHours: Number(currentDuration.toFixed(2)),
+          roomCode,
+          isActive: true
+        });
+      }
+    }
+
+    return activeSessions;
+  }
+
   addSafetyInspectionRecord(record, userId) {
     const uid = userId ? normalizeUserId(userId) : DEFAULT_USER_ID;
     const newRecord = {

@@ -754,17 +754,26 @@ function generateSafetyImprovementPlan(riskFactors) {
 function generateRoomSafetyAlert(userId, roomCode) {
   const uid = normalizeUserId(userId);
 
+  const scenario = storage.getUsageScenarioByCode(roomCode);
+  if (!scenario) {
+    return {
+      error: 'INVALID_ROOM_CODE',
+      message: `房间代码 "${roomCode}" 无效，请使用有效的房间代码`,
+      validRoomCodes: storage.getUsageScenarios().map(s => ({ code: s.code, name: s.name }))
+    };
+  }
+
   const roomEnv = storage.getRoomEnvironment(uid, roomCode);
   const roomBurningRecords = storage.getBurningRecords({ userId: uid, scene: roomCode });
-  const activeSession = storage.getActiveBurningSession(uid, null);
+  const activeSessions = storage.getActiveBurningSessionsByRoom(uid, roomCode);
 
   const currentEnv = {
     ...roomEnv,
     roomCode
   };
 
-  const assessment = assessBurningRisk(uid, activeSession?.candleId, currentEnv);
-  const scenario = storage.getUsageScenarioByCode(roomCode);
+  const primarySession = activeSessions.length > 0 ? activeSessions[0] : null;
+  const assessment = assessBurningRisk(uid, primarySession?.candleId, currentEnv);
 
   const alerts = [];
 
@@ -772,7 +781,7 @@ function generateRoomSafetyAlert(userId, roomCode) {
     alerts.push({
       alertType: 'high_risk',
       severity: 'critical',
-      title: `${scenario?.name || roomCode}安全风险告警`,
+      title: `${scenario.name}安全风险告警`,
       message: `当前房间风险评分${assessment.riskScore}分，属于${assessment.riskLevelName}级别`,
       immediateAction: assessment.recommendation
     });
@@ -822,7 +831,7 @@ function generateRoomSafetyAlert(userId, roomCode) {
     alerts.push({
       alertType: 'safe',
       severity: 'low',
-      title: `${scenario?.name || roomCode}安全状态良好`,
+      title: `${scenario.name}安全状态良好`,
       message: '当前环境安全，可正常使用蜡烛',
       immediateAction: '继续保持良好的使用习惯'
     });
@@ -835,11 +844,14 @@ function generateRoomSafetyAlert(userId, roomCode) {
   return {
     userId: uid,
     roomCode,
-    roomName: scenario?.name || roomCode,
+    roomName: scenario.name,
     riskScore: assessment.riskScore,
     riskLevel: assessment.riskLevel,
     riskLevelName: assessment.riskLevelName,
-    activeSession,
+    isBurningInRoom: activeSessions.length > 0,
+    activeBurningSessions: activeSessions,
+    activeSessionCount: activeSessions.length,
+    primarySession,
     alerts: storedAlerts,
     safetySuggestions: assessment.safetyTips.slice(0, 5),
     lastUpdated: Date.now()

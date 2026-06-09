@@ -1177,6 +1177,12 @@ router.get('/safety/room-alert/:roomCode', (req, res) => {
 
     const alert = safetyService.generateRoomSafetyAlert(userId, roomCode.trim());
 
+    if (alert.error === 'INVALID_ROOM_CODE') {
+      return res.json(error(400, alert.message, {
+        validRoomCodes: alert.validRoomCodes
+      }));
+    }
+
     res.json(success(alert, '房间安全告警生成成功'));
   } catch (err) {
     res.json(error(500, '服务器错误', err.message));
