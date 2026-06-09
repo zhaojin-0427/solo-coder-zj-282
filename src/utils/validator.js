@@ -349,6 +349,466 @@ function validateUserIdConflict(queryUserId, bodyUserId) {
   return validateUserId(userId, true);
 }
 
+function validateRating(rating) {
+  const num = parseNumber(rating);
+  if (num === null) {
+    return { valid: false, errors: ['评分必须是有效的数字'] };
+  }
+  if (num < 1 || num > 5) {
+    return { valid: false, errors: ['评分必须在1-5之间'] };
+  }
+  return { valid: true, data: Math.round(num * 10) / 10 };
+}
+
+function validateScentTag(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 32) {
+      errors.push('name 长度不能超过32个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.category !== undefined) {
+    if (typeof body.category !== 'string' || body.category.trim() === '') {
+      errors.push('category 必须是非空字符串');
+    } else {
+      result.category = body.category.trim();
+    }
+  }
+
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string') {
+      errors.push('description 必须是字符串');
+    } else if (body.description.length > 200) {
+      errors.push('description 长度不能超过200个字符');
+    } else {
+      result.description = body.description.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateFragranceCategory(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.code || typeof body.code !== 'string' || body.code.trim() === '') {
+    errors.push('code 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.code.trim();
+    if (!/^[a-z_]+$/.test(trimmed)) {
+      errors.push('code 只能包含小写字母和下划线');
+    }
+    if (trimmed.length > 32) {
+      errors.push('code 长度不能超过32个字符');
+    }
+    result.code = trimmed;
+  }
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 32) {
+      errors.push('name 长度不能超过32个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string') {
+      errors.push('description 必须是字符串');
+    } else if (body.description.length > 200) {
+      errors.push('description 长度不能超过200个字符');
+    } else {
+      result.description = body.description.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateUsageScenario(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.code || typeof body.code !== 'string' || body.code.trim() === '') {
+    errors.push('code 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.code.trim();
+    if (!/^[a-z_]+$/.test(trimmed)) {
+      errors.push('code 只能包含小写字母和下划线');
+    }
+    if (trimmed.length > 32) {
+      errors.push('code 长度不能超过32个字符');
+    }
+    result.code = trimmed;
+  }
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 32) {
+      errors.push('name 长度不能超过32个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string') {
+      errors.push('description 必须是字符串');
+    } else if (body.description.length > 200) {
+      errors.push('description 长度不能超过200个字符');
+    } else {
+      result.description = body.description.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateMoodGoal(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.code || typeof body.code !== 'string' || body.code.trim() === '') {
+    errors.push('code 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.code.trim();
+    if (!/^[a-z_]+$/.test(trimmed)) {
+      errors.push('code 只能包含小写字母和下划线');
+    }
+    if (trimmed.length > 32) {
+      errors.push('code 长度不能超过32个字符');
+    }
+    result.code = trimmed;
+  }
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 32) {
+      errors.push('name 长度不能超过32个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string') {
+      errors.push('description 必须是字符串');
+    } else if (body.description.length > 200) {
+      errors.push('description 长度不能超过200个字符');
+    } else {
+      result.description = body.description.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateSeasonPreference(body) {
+  const errors = [];
+  const result = {};
+
+  if (!body.code || typeof body.code !== 'string' || body.code.trim() === '') {
+    errors.push('code 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.code.trim();
+    if (!/^[a-z_]+$/.test(trimmed)) {
+      errors.push('code 只能包含小写字母和下划线');
+    }
+    if (trimmed.length > 32) {
+      errors.push('code 长度不能超过32个字符');
+    }
+    result.code = trimmed;
+  }
+
+  if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+    errors.push('name 不能为空且必须是字符串');
+  } else {
+    const trimmed = body.name.trim();
+    if (trimmed.length > 32) {
+      errors.push('name 长度不能超过32个字符');
+    }
+    result.name = trimmed;
+  }
+
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string') {
+      errors.push('description 必须是字符串');
+    } else if (body.description.length > 200) {
+      errors.push('description 长度不能超过200个字符');
+    } else {
+      result.description = body.description.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateUserRating(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.candleId === undefined || body.candleId === null) {
+    errors.push('candleId 为必填项');
+  } else {
+    const candleId = parsePositiveInteger(body.candleId);
+    if (candleId === null || candleId <= 0) {
+      errors.push('candleId 必须是有效的正整数');
+    } else {
+      result.candleId = candleId;
+    }
+  }
+
+  const ratingValidation = validateRating(body.rating);
+  if (!ratingValidation.valid) {
+    errors.push(...ratingValidation.errors);
+  } else {
+    result.rating = ratingValidation.data;
+  }
+
+  if (body.comment !== undefined) {
+    if (typeof body.comment !== 'string') {
+      errors.push('comment 必须是字符串');
+    } else if (body.comment.length > 500) {
+      errors.push('comment 长度不能超过500个字符');
+    } else {
+      result.comment = body.comment.trim();
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateStringArray(arr, fieldName, maxLength = 32, required = false) {
+  if (!required && (arr === undefined || arr === null)) {
+    return { valid: true, data: undefined };
+  }
+
+  if (!Array.isArray(arr)) {
+    return { valid: false, errors: [`${fieldName} 必须是数组`] };
+  }
+
+  if (arr.length === 0) {
+    return { valid: false, errors: [`${fieldName} 不能为空数组`] };
+  }
+
+  const result = [];
+  const seen = new Set();
+  const errors = [];
+
+  for (let i = 0; i < arr.length; i++) {
+    const item = arr[i];
+    if (typeof item !== 'string' || item.trim() === '') {
+      errors.push(`${fieldName}[${i}] 必须是非空字符串`);
+      continue;
+    }
+    const trimmed = item.trim();
+    if (trimmed.length > maxLength) {
+      errors.push(`${fieldName}[${i}] 长度不能超过${maxLength}个字符`);
+      continue;
+    }
+    if (seen.has(trimmed)) {
+      errors.push(`${fieldName} 中存在重复标签: ${trimmed}`);
+      continue;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateSeasonCode(code) {
+  const validSeasons = ['spring', 'summer', 'autumn', 'winter'];
+  if (!validSeasons.includes(code)) {
+    return { valid: false, errors: [`季节必须是以下值之一: ${validSeasons.join(', ')}`] };
+  }
+  return { valid: true, data: code };
+}
+
+function validateIntensity(intensity) {
+  const validIntensities = ['light', 'medium', 'strong'];
+  if (!validIntensities.includes(intensity)) {
+    return { valid: false, errors: [`浓度必须是以下值之一: ${validIntensities.join(', ')}`] };
+  }
+  return { valid: true, data: intensity };
+}
+
+function validateWeather(weather) {
+  const validWeathers = ['sunny', 'cloudy', 'rainy', 'snowy', 'humid', 'dry'];
+  if (!validWeathers.includes(weather)) {
+    return { valid: false, errors: [`天气必须是以下值之一: ${validWeathers.join(', ')}`] };
+  }
+  return { valid: true, data: weather };
+}
+
+function validateUserScentPreferences(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.allergyTags !== undefined) {
+    const allergyValidation = validateStringArray(body.allergyTags, 'allergyTags', 32, false);
+    if (!allergyValidation.valid) {
+      errors.push(...allergyValidation.errors);
+    } else if (allergyValidation.data !== undefined) {
+      result.allergyTags = allergyValidation.data;
+    }
+  }
+
+  if (body.excludeTags !== undefined) {
+    const excludeValidation = validateStringArray(body.excludeTags, 'excludeTags', 32, false);
+    if (!excludeValidation.valid) {
+      errors.push(...excludeValidation.errors);
+    } else if (excludeValidation.data !== undefined) {
+      result.excludeTags = excludeValidation.data;
+    }
+  }
+
+  if (body.commonSpaces !== undefined) {
+    const spacesValidation = validateStringArray(body.commonSpaces, 'commonSpaces', 32, false);
+    if (!spacesValidation.valid) {
+      errors.push(...spacesValidation.errors);
+    } else if (spacesValidation.data !== undefined) {
+      result.commonSpaces = spacesValidation.data;
+    }
+  }
+
+  if (body.desiredMoods !== undefined) {
+    const moodsValidation = validateStringArray(body.desiredMoods, 'desiredMoods', 32, false);
+    if (!moodsValidation.valid) {
+      errors.push(...moodsValidation.errors);
+    } else if (moodsValidation.data !== undefined) {
+      result.desiredMoods = moodsValidation.data;
+    }
+  }
+
+  if (body.seasonPreference !== undefined) {
+    const seasonValidation = validateSeasonCode(body.seasonPreference);
+    if (!seasonValidation.valid) {
+      errors.push(...seasonValidation.errors);
+    } else {
+      result.seasonPreference = seasonValidation.data;
+    }
+  }
+
+  if (body.weatherCondition !== undefined) {
+    const weatherValidation = validateWeather(body.weatherCondition);
+    if (!weatherValidation.valid) {
+      errors.push(...weatherValidation.errors);
+    } else {
+      result.weatherCondition = weatherValidation.data;
+    }
+  }
+
+  if (body.intensityPreference !== undefined) {
+    const intensityValidation = validateIntensity(body.intensityPreference);
+    if (!intensityValidation.valid) {
+      errors.push(...intensityValidation.errors);
+    } else {
+      result.intensityPreference = intensityValidation.data;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
+function validateRecommendationQuery(body) {
+  const errors = [];
+  const result = {};
+
+  if (body.scene !== undefined && body.scene !== null) {
+    if (typeof body.scene !== 'string' || body.scene.trim() === '') {
+      errors.push('scene 必须是非空字符串');
+    } else {
+      result.scene = body.scene.trim();
+    }
+  }
+
+  if (body.mood !== undefined && body.mood !== null) {
+    if (typeof body.mood !== 'string' || body.mood.trim() === '') {
+      errors.push('mood 必须是非空字符串');
+    } else {
+      result.mood = body.mood.trim();
+    }
+  }
+
+  if (body.season !== undefined && body.season !== null) {
+    const seasonValidation = validateSeasonCode(body.season);
+    if (!seasonValidation.valid) {
+      errors.push(...seasonValidation.errors);
+    } else {
+      result.season = seasonValidation.data;
+    }
+  }
+
+  if (body.roomSize !== undefined && body.roomSize !== null) {
+    const roomSize = parseNumber(body.roomSize);
+    if (roomSize === null || roomSize <= 0) {
+      errors.push('roomSize 必须是有效的正数');
+    } else {
+      result.roomSize = roomSize;
+    }
+  }
+
+  if (body.maxCandles !== undefined && body.maxCandles !== null) {
+    const max = parsePositiveInteger(body.maxCandles);
+    if (max === null || max <= 0 || max > 10) {
+      errors.push('maxCandles 必须是1-10之间的正整数');
+    } else {
+      result.maxCandles = max;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: result
+  };
+}
+
 module.exports = {
   parseNumber,
   parseInteger,
@@ -368,5 +828,18 @@ module.exports = {
   validateScene,
   validateBurningRecord,
   validateInventoryReport,
-  validateReplenishmentList
+  validateReplenishmentList,
+  validateScentTag,
+  validateFragranceCategory,
+  validateUsageScenario,
+  validateMoodGoal,
+  validateSeasonPreference,
+  validateUserRating,
+  validateUserScentPreferences,
+  validateRecommendationQuery,
+  validateRating,
+  validateStringArray,
+  validateSeasonCode,
+  validateIntensity,
+  validateWeather
 };

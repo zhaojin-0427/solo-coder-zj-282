@@ -6,6 +6,9 @@ const consumptionRoutes = require('./routes/consumption');
 const replenishmentRoutes = require('./routes/replenishment');
 const tipsRoutes = require('./routes/tips');
 const multiUserRoutes = require('./routes/multiUser');
+const scentManagementRoutes = require('./routes/scentManagement');
+const userScentPreferencesRoutes = require('./routes/userScentPreferences');
+const recommendationsRoutes = require('./routes/recommendations');
 
 const app = express();
 
@@ -25,8 +28,8 @@ app.get('/', (req, res) => {
   const { success } = require('./utils/response');
   res.json(success({
     name: '香薰蜡烛燃烧时长预测与补货建议 API 服务',
-    version: '2.0.0',
-    description: '支持多用户使用画像与批次化补货计划',
+    version: '3.0.0',
+    description: '支持多用户使用画像与批次化补货计划，新增香薰气味偏好与场景化搭配推荐能力',
     endpoints: {
       singleUser: {
         inventory: {
@@ -48,6 +51,34 @@ app.get('/', (req, res) => {
           personalized: 'GET /api/tips/personalized/:candleId',
           byType: 'GET /api/tips/type/:type',
           list: 'GET /api/tips'
+        },
+        scentManagement: {
+          scentTags: 'GET/POST /api/scent/scent-tags',
+          scentTagById: 'GET/PUT/DELETE /api/scent/scent-tags/:id',
+          fragranceCategories: 'GET/POST /api/scent/fragrance-categories',
+          fragranceCategoryById: 'GET/PUT/DELETE /api/scent/fragrance-categories/:id',
+          usageScenarios: 'GET/POST /api/scent/usage-scenarios',
+          usageScenarioById: 'GET/PUT/DELETE /api/scent/usage-scenarios/:id',
+          moodGoals: 'GET/POST /api/scent/mood-goals',
+          moodGoalById: 'GET/PUT/DELETE /api/scent/mood-goals/:id',
+          seasonPreferences: 'GET/POST /api/scent/season-preferences',
+          seasonPreferenceById: 'GET/PUT/DELETE /api/scent/season-preferences/:id',
+          conflictRules: 'GET /api/scent/conflict-rules'
+        },
+        userScentPreferences: {
+          submitRating: 'POST /api/scent-user/rating',
+          getRatings: 'GET /api/scent-user/ratings',
+          savePreferences: 'POST /api/scent-user/preferences',
+          getPreferences: 'GET /api/scent-user/preferences',
+          getFragranceProfile: 'GET /api/scent-user/fragrance-profile'
+        },
+        recommendations: {
+          getRecommendations: 'POST /api/recommendations',
+          byRoom: 'GET /api/recommendations/by-room/:scene',
+          byMood: 'GET /api/recommendations/by-mood/:mood',
+          bySeason: 'GET /api/recommendations/by-season/:season',
+          inventoryUsage: 'GET /api/recommendations/inventory-usage',
+          purchaseSuggestions: 'GET /api/recommendations/purchase-suggestions'
         }
       },
       multiUser: {
@@ -72,12 +103,35 @@ app.get('/', (req, res) => {
         },
         tips: {
           personalized: 'GET /api/user/tips/personalized?userId=xxx'
+        },
+        scentPreferences: {
+          submitRating: 'POST /api/user/scent/rating?userId=xxx',
+          getRatings: 'GET /api/user/scent/ratings?userId=xxx',
+          savePreferences: 'POST /api/user/scent/preferences?userId=xxx',
+          getPreferences: 'GET /api/user/scent/preferences?userId=xxx',
+          getFragranceProfile: 'GET /api/user/scent/fragrance-profile?userId=xxx'
+        },
+        recommendations: {
+          getRecommendations: 'POST /api/user/scent/recommendations?userId=xxx',
+          byRoom: 'GET /api/user/scent/recommendations/by-room/:scene?userId=xxx',
+          byMood: 'GET /api/user/scent/recommendations/by-mood/:mood?userId=xxx',
+          bySeason: 'GET /api/user/scent/recommendations/by-season/:season?userId=xxx',
+          inventoryUsage: 'GET /api/user/scent/inventory-usage?userId=xxx',
+          purchaseSuggestions: 'GET /api/user/scent/purchase-suggestions?userId=xxx'
         }
       },
       commonParameters: {
         userId: '用户标识，1-64位字符串，多用户接口必填',
-        scene: '使用场景（如客厅、卧室、书房等），可选，1-32位字符串',
-        days: '预测天数，可选值 7、14、30，默认 7'
+        scene: '使用场景（如 living_room、bedroom、study 等），可选，1-32位字符串',
+        mood: '情绪目标（如 sleep、relax、focus、romance 等），可选',
+        season: '季节偏好（spring、summer、autumn、winter），可选',
+        days: '预测天数，可选值 7、14、30，默认 7',
+        rating: '用户评分，1-5分，支持一位小数',
+        allergyTags: '过敏标签数组，自动去重',
+        excludeTags: '排斥标签数组，自动去重',
+        commonSpaces: '常用空间数组',
+        desiredMoods: '期望氛围数组',
+        intensityPreference: '浓度偏好（light、medium、strong）'
       },
       errorCodes: {
         400: '参数校验失败/请求格式错误',
@@ -93,6 +147,9 @@ app.use('/api/consumption', consumptionRoutes);
 app.use('/api/replenishment', replenishmentRoutes);
 app.use('/api/tips', tipsRoutes);
 app.use('/api/user', multiUserRoutes);
+app.use('/api/scent', scentManagementRoutes);
+app.use('/api/scent-user', userScentPreferencesRoutes);
+app.use('/api/recommendations', recommendationsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
